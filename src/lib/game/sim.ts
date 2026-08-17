@@ -64,13 +64,13 @@ const TIER_BUDGET = [80_000_000, 45_000_000, 25_000_000, 15_000_000];
 const TIER_POPULARITY = [72000, 46000, 31000, 22000];
 
 export const FOCUS_ATTRS: Record<FocusKey, (keyof PlayerAttrs)[]> = {
-  attack: ["pac", "tec", "sho"],
-  defense: ["def", "str", "hea"],
-  fitness: ["pac", "str", "hea"],
-  shooting: ["sho", "tec", "pac"],
-  passing: ["pas", "tec"],
-  goalkeeping: ["gk", "def"],
-  balanced: ["def", "pas", "sho", "pac", "str", "tec", "hea"],
+  attack: ["finishing", "longShots", "dribbling", "ballControl", "firstTouch", "crossing"],
+  defense: ["tackling", "marking", "heading", "positioning", "concentration"],
+  fitness: ["acceleration", "sprintSpeed", "stamina", "strength", "agility", "balance", "jumping"],
+  shooting: ["finishing", "longShots", "penalties", "composure"],
+  passing: ["passing", "shortPassing", "longPassing", "vision", "firstTouch"],
+  goalkeeping: ["reflexes", "handling", "gkPositioning", "oneOnOne", "kicking", "throwing", "aerialAbility", "communication"],
+  balanced: ["finishing", "tackling", "passing", "acceleration", "stamina", "dribbling", "heading", "strength"],
 };
 
 export const FOCUS_LABELS: Record<FocusKey, string> = {
@@ -87,16 +87,38 @@ export const FOCUS_LABELS: Record<FocusKey, string> = {
 // Attribute / value helpers
 // ---------------------------------------------------------------------------
 
-export function roleWeights(pos: Pos): Record<keyof PlayerAttrs, number> {
+export function roleWeights(pos: Pos): Partial<Record<keyof PlayerAttrs, number>> {
   switch (pos) {
     case "GK":
-      return { gk: 0.55, def: 0.2, tec: 0.15, str: 0.1, pas: 0, sho: 0, hea: 0, pac: 0 };
+      return {
+        reflexes: 0.18, handling: 0.15, gkPositioning: 0.15, oneOnOne: 0.1,
+        aerialAbility: 0.08, communication: 0.06, kicking: 0.05, throwing: 0.03,
+        positioning: 0.05, decisions: 0.03, composure: 0.03, concentration: 0.03,
+        agility: 0.02, balance: 0.02, jumping: 0.02,
+      };
     case "DF":
-      return { def: 0.5, pac: 0.15, pas: 0.1, hea: 0.1, str: 0.15, gk: 0, sho: 0, tec: 0 };
+      return {
+        tackling: 0.16, marking: 0.14, heading: 0.1, positioning: 0.1,
+        strength: 0.08, acceleration: 0.06, sprintSpeed: 0.05, jumping: 0.05,
+        composure: 0.05, concentration: 0.05, bravery: 0.04, teamwork: 0.04,
+        decisions: 0.03, anticipation: 0.03, workRate: 0.02,
+      };
     case "MF":
-      return { pas: 0.3, tec: 0.2, def: 0.15, sho: 0.1, pac: 0.1, str: 0.1, hea: 0.05, gk: 0 };
+      return {
+        passing: 0.1, shortPassing: 0.09, vision: 0.09, decisions: 0.07,
+        composure: 0.06, ballControl: 0.06, firstTouch: 0.05, dribbling: 0.05,
+        tackling: 0.05, teamwork: 0.05, stamina: 0.05, workRate: 0.05,
+        positioning: 0.04, anticipation: 0.04, determination: 0.04,
+        longPassing: 0.03, crossing: 0.03, aggression: 0.02, strength: 0.03,
+      };
     default:
-      return { sho: 0.35, pac: 0.2, tec: 0.15, hea: 0.1, pas: 0.1, str: 0.1, def: 0, gk: 0 };
+      return {
+        finishing: 0.16, composure: 0.09, dribbling: 0.08, acceleration: 0.08,
+        sprintSpeed: 0.07, firstTouch: 0.06, ballControl: 0.06, heading: 0.06,
+        positioning: 0.05, decisions: 0.05, longShots: 0.05, balance: 0.04,
+        agility: 0.04, penalties: 0.03, determination: 0.03, stamina: 0.03,
+        strength: 0.02,
+      };
   }
 }
 
@@ -105,8 +127,8 @@ export function computeOverall(p: { attrs: PlayerAttrs; pos: Pos }, pos?: Pos): 
   let s = 0;
   let tw = 0;
   for (const k of ATTR_KEYS) {
-    s += p.attrs[k] * w[k];
-    tw += w[k];
+    s += p.attrs[k] * (w[k] ?? 0);
+    tw += w[k] ?? 0;
   }
   return Math.round(s / (tw || 1));
 }
@@ -143,10 +165,49 @@ export function sortSquad(squad: Player[]): Player[] {
 // ---------------------------------------------------------------------------
 
 const ROLE_BONUS: Record<Pos, Partial<Record<keyof PlayerAttrs, number>>> = {
-  GK: { gk: 14, def: 4, tec: 3, str: 3, pas: -10, sho: -45, pac: -8, hea: -4 },
-  DF: { def: 12, hea: 6, str: 6, pac: 4, pas: 1, sho: -12, tec: 1, gk: -45 },
-  MF: { pas: 10, tec: 6, def: 3, sho: 2, pac: 3, str: 2, hea: 1, gk: -45 },
-  FW: { sho: 11, pac: 9, tec: 5, hea: 4, pas: 0, def: -12, str: 3, gk: -45 },
+  GK: {
+    reflexes: 14, handling: 12, gkPositioning: 12, oneOnOne: 8, aerialAbility: 7,
+    communication: 6, kicking: 5, throwing: 4, positioning: 3, composure: 2,
+    decisions: 2, jumping: 3, strength: 3, agility: 2, balance: 2, stamina: 1,
+    tackling: 3, marking: 4, heading: 1, teamwork: 2, workRate: 1, bravery: 1,
+    leadership: 2, determination: 2, fitness: 2,
+    acceleration: -4, sprintSpeed: -4, finishing: -40, longShots: -25,
+    dribbling: -18, ballControl: -8, firstTouch: -6, crossing: -15,
+    passing: -8, shortPassing: -6, longPassing: -8, vision: -6,
+    freeKicks: -10, penalties: -15, corners: -12, aggression: -4,
+  },
+  DF: {
+    tackling: 12, marking: 12, heading: 6, positioning: 8, strength: 6,
+    jumping: 5, concentration: 5, composure: 3, bravery: 4, aggression: 3,
+    decisions: 2, anticipation: 3, teamwork: 2, workRate: 2, leadership: 2,
+    acceleration: 3, sprintSpeed: 3, stamina: 3, fitness: 2,
+    finishing: -12, longShots: -6, dribbling: -6, ballControl: -3,
+    firstTouch: -3, crossing: -3, passing: -2, shortPassing: -2,
+    longPassing: -2, vision: -5, freeKicks: -8, penalties: -10, corners: -5,
+    reflexes: -35, handling: -35, gkPositioning: -35, oneOnOne: -35,
+    kicking: -35, throwing: -35, aerialAbility: -35, communication: -35,
+  },
+  MF: {
+    passing: 10, shortPassing: 8, longPassing: 6, vision: 8, ballControl: 6,
+    firstTouch: 6, dribbling: 5, decisions: 4, teamwork: 4, stamina: 4,
+    workRate: 3, tackling: 2, positioning: 3, composure: 3, crossing: 2,
+    freeKicks: 2, anticipation: 2, determination: 2, aggression: 1,
+    balance: 2, agility: 2, acceleration: 2, sprintSpeed: 2, strength: 2,
+    leadership: 1, longShots: 1, fitness: 2, heading: -3, finishing: -2,
+    penalties: -2,
+    reflexes: -35, handling: -35, gkPositioning: -35, oneOnOne: -35,
+    kicking: -35, throwing: -35, aerialAbility: -35, communication: -35,
+  },
+  FW: {
+    finishing: 11, longShots: 6, dribbling: 7, acceleration: 7, sprintSpeed: 7,
+    firstTouch: 5, ballControl: 5, heading: 4, positioning: 5, composure: 3,
+    balance: 3, agility: 3, penalties: 4, freeKicks: 2, determination: 2,
+    stamina: 2, strength: 2, fitness: 1, vision: 1,
+    tackling: -10, marking: -8, crossing: -4, shortPassing: -4, longPassing: -6,
+    passing: -4, teamwork: -1, workRate: -1,
+    reflexes: -35, handling: -35, gkPositioning: -35, oneOnOne: -35,
+    kicking: -35, throwing: -35, aerialAbility: -35, communication: -35,
+  },
 };
 
 function makeAttrs(rng: Rng, target: number, pos: Pos): PlayerAttrs {
@@ -1108,6 +1169,34 @@ export function applyYouthWeek(save: SaveData, rng: Rng) {
     });
     addNews(save, "youth", L(save, `🎓 Academy intake: ${playerName(p)} (${pos}, ${age}) joins the youth squad with big potential (${p.pot}).`, `🎓 استعداد جدید آکادمی: ${playerName(p)} (${pos}, ${age}) با پتانسیل بالا (${p.pot}) به تیم جوانان پیوست.`));
   }
+}
+
+export interface AchievementDef {
+  icon: string;
+  en: [string, string];
+  fa: [string, string];
+}
+
+/** All achievements the game can award — name + description in both languages. */
+export const ACHIEVEMENTS: Record<string, AchievementDef> = {
+  first_win: { icon: "🥇", en: ["First Blood", "Win your first match"], fa: ["اولین پیروزی", "اولین برد خود را ثبت کنید"] },
+  streak_3: { icon: "🔥", en: ["On Fire", "Win 3 matches in a row"], fa: ["در آتش", "۳ پیروزی متوالی"] },
+  streak_5: { icon: "⚡", en: ["Unstoppable", "Win 5 matches in a row"], fa: ["غیرقابل توقف", "۵ پیروزی متوالی"] },
+  unbeaten_5: { icon: "🛡️", en: ["Invincible Run", "Go 5 matches unbeaten"], fa: ["راه شکست‌ناپذیر", "۵ بازی بدون شکست"] },
+  promote_3: { icon: "🎓", en: ["Academy Product", "Promote 3 youth players"], fa: ["محصول آکادمی", "۳ بازیکن جوان را بالا بیاورید"] },
+  sign_5: { icon: "✍️", en: ["Deal Maker", "Sign 5 players"], fa: ["معامله‌گر", "۵ بازیکن بخرید"] },
+  sell_5: { icon: "💰", en: ["Transfer Genius", "Sell 5 players"], fa: ["نابغه نقل‌وانتقالات", "۵ بازیکن بفروشید"] },
+  stadium_3: { icon: "🏟️", en: ["Growing Club", "Upgrade the stadium to level 3"], fa: ["باشگاه در حال رشد", "ورزشگاه را به سطح ۳ برسانید"] },
+  stadium_5: { icon: "🏟️", en: ["Monument", "Upgrade the stadium to level 5"], fa: ["یادمان", "ورزشگاه را به سطح ۵ برسانید"] },
+  sponsor_4: { icon: "🤝", en: ["Corporate Power", "Reach sponsor level 4"], fa: ["قدرت شرکتی", "به سطح ۴ اسپانسر برسید"] },
+  balance_100m: { icon: "💎", en: ["Rich Club", "Hold €100M in the bank"], fa: ["باشگاه ثروتمند", "۱۰۰ میلیون یورو در بانک داشته باشید"] },
+  league_title: { icon: "🏆", en: ["Champions!", "Win the league title"], fa: ["قهرمان!", "قهرمان لیگ شوید"] },
+  cup_title: { icon: "🏅", en: ["Cup Kings", "Win the National Cup"], fa: ["پادشاهان جام", "جام حذفی را ببرید"] },
+  double: { icon: "👑", en: ["The Double", "Win the league and cup in one season"], fa: ["دبل", "در یک فصل قهرمان لیگ و جام شوید"] },
+};
+
+export function achievementDef(id: string): AchievementDef | undefined {
+  return ACHIEVEMENTS[id];
 }
 
 const ACHIEVEMENT_FA: Record<string, [string, string]> = {

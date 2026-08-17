@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { computeOverall, sortSquad } from "@/lib/game/sim";
-import type { SaveData } from "@/lib/game/types";
+import type { Player, SaveData } from "@/lib/game/types";
+import { PlayerSheet } from "@/components/game/PlayerSheet";
 import {
   Bar,
   FormChips,
@@ -12,11 +13,14 @@ import {
 } from "@/components/game/shared";
 import { fmtMoney } from "@/lib/game/format";
 import { num, useLang } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 export function SquadTab({ save }: { save: SaveData }) {
   const { t, lang } = useLang();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const squad = useMemo(() => sortSquad(save.squad), [save.squad]);
   const wage = save.squad.reduce((a, p) => a + p.wage, 0);
+  const selected = squad.find((p) => p.id === selectedId) ?? null;
 
   return (
     <div className="space-y-6">
@@ -58,7 +62,14 @@ export function SquadTab({ save }: { save: SaveData }) {
             </thead>
             <tbody>
               {squad.map((p) => (
-                <tr key={p.id} className="border-t border-white/5 transition-colors hover:bg-white/[0.02]">
+                <tr
+                  key={p.id}
+                  onClick={() => setSelectedId(p.id)}
+                  className={cn(
+                    "cursor-pointer border-t border-white/5 transition-colors hover:bg-white/[0.03]",
+                    selectedId === p.id && "bg-emerald-500/[0.04]",
+                  )}
+                >
                   <td className="px-4 py-3">
                     <SquadRowMeta p={p} />
                   </td>
@@ -108,6 +119,13 @@ export function SquadTab({ save }: { save: SaveData }) {
       <p className="text-xs leading-relaxed text-muted-foreground">
         {t("sq.footnote")}
       </p>
+
+      <PlayerSheet
+        player={selected as Player | null}
+        mode="squad"
+        open={selected != null}
+        onOpenChange={(o) => { if (!o) setSelectedId(null); }}
+      />
     </div>
   );
 }

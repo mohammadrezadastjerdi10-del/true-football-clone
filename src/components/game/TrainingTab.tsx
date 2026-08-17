@@ -10,7 +10,8 @@ import {
 import { useSave } from "@/hooks/use-save";
 import { computeOverall, FOCUS_LABELS, playerName } from "@/lib/game/sim";
 import { fmtMoney } from "@/lib/game/format";
-import type { FocusKey, SaveData } from "@/lib/game/types";
+import type { FocusKey, SaveData, YouthPlayer } from "@/lib/game/types";
+import { PlayerSheet } from "@/components/game/PlayerSheet";
 import { Flag, Ovr, PosBadge, SectionTitle } from "@/components/game/shared";
 import { num, useLang } from "@/lib/i18n";
 import { Loader2, Rocket, Save, UserX } from "lucide-react";
@@ -26,6 +27,8 @@ export function TrainingTab({ save }: { save: SaveData }) {
   const [intensity, setIntensity] = useState(save.training.intensity);
   const [dirty, setDirty] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [openYouthId, setOpenYouthId] = useState<string | null>(null);
+  const openYouth = save.youth.find((y) => y.id === openYouthId) ?? null;
 
   const saveTraining = async () => {
     try {
@@ -149,7 +152,11 @@ export function TrainingTab({ save }: { save: SaveData }) {
           {save.youth.map((y) => (
             <div
               key={y.id}
-              className="flex items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3"
+              role="button"
+              tabIndex={0}
+              onClick={() => setOpenYouthId(y.id)}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") setOpenYouthId(y.id); }}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 transition-colors hover:border-emerald-500/40"
             >
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-sm font-medium text-foreground">
@@ -170,7 +177,7 @@ export function TrainingTab({ save }: { save: SaveData }) {
                   size="sm"
                   className="gap-1.5 rounded-lg border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10"
                   disabled={busyId === y.id}
-                  onClick={() => promote(y.id)}
+                  onClick={(e) => { e.stopPropagation(); promote(y.id); }}
                 >
                   <Rocket className="size-3.5" />
                   {t("tr.promote")}
@@ -180,7 +187,7 @@ export function TrainingTab({ save }: { save: SaveData }) {
                   size="sm"
                   className="gap-1.5 rounded-lg text-muted-foreground hover:text-red-300"
                   disabled={busyId === y.id}
-                  onClick={() => release(y.id)}
+                  onClick={(e) => { e.stopPropagation(); release(y.id); }}
                 >
                   <UserX className="size-3.5" />
                 </Button>
@@ -189,6 +196,13 @@ export function TrainingTab({ save }: { save: SaveData }) {
           ))}
         </div>
       </div>
+
+      <PlayerSheet
+        player={openYouth as YouthPlayer | null}
+        mode="youth"
+        open={openYouth != null}
+        onOpenChange={(o) => { if (!o) setOpenYouthId(null); }}
+      />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { BrandWordmark } from "@/components/BrandMark";
 import { CareerStart } from "@/components/game/CareerStart";
+import { ClubTab } from "@/components/game/ClubTab";
 import { MatchView } from "@/components/game/MatchView";
 import { OverviewTab } from "@/components/game/OverviewTab";
 import { SquadTab } from "@/components/game/SquadTab";
@@ -16,6 +17,7 @@ import { fmtMoney } from "@/lib/game/format";
 import { LangToggle, num, useLang } from "@/lib/i18n";
 import {
   ArrowLeftRight,
+  Building2,
   Dumbbell,
   Home,
   Loader2,
@@ -27,7 +29,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 
-type TabId = "overview" | "squad" | "tactics" | "training" | "transfers";
+type TabId = "overview" | "squad" | "tactics" | "training" | "transfers" | "club";
 
 const TABS: { id: TabId; labelKey: string; icon: typeof Home }[] = [
   { id: "overview", labelKey: "nav.overview", icon: Home },
@@ -35,6 +37,7 @@ const TABS: { id: TabId; labelKey: string; icon: typeof Home }[] = [
   { id: "tactics", labelKey: "nav.tactics", icon: SlidersHorizontal },
   { id: "training", labelKey: "nav.training", icon: Dumbbell },
   { id: "transfers", labelKey: "nav.transfers", icon: ArrowLeftRight },
+  { id: "club", labelKey: "nav.club", icon: Building2 },
 ];
 
 export default function Dashboard() {
@@ -167,8 +170,10 @@ export default function Dashboard() {
           <TacticsTab save={data} />
         ) : tab === "training" ? (
           <TrainingTab save={data} />
-        ) : (
+        ) : tab === "transfers" ? (
           <TransfersTab save={data} />
+        ) : (
+          <ClubTab save={data} />
         )}
       </main>
     </div>

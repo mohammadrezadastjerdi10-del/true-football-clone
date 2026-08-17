@@ -215,7 +215,7 @@ const ROLE_WEIGHTS: Record<Pos, Partial<Record<keyof PlayerAttrs, number>>> = {
     composure: 0.07, tackling: 0.06, teamwork: 0.06, workRate: 0.06,
     stamina: 0.06, ballControl: 0.05, firstTouch: 0.05, dribbling: 0.04,
     positioning: 0.04, anticipation: 0.04, determination: 0.04,
-    dribbling: 0.04, crossing: 0.03, longPassing: 0.02,
+    crossing: 0.03, longPassing: 0.02,
   },
   FW: {
     finishing: 0.18, composure: 0.1, dribbling: 0.08, acceleration: 0.08,

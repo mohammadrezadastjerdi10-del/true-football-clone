@@ -702,7 +702,7 @@ function addFinance(save: SaveData, income: number, expense: number, note: strin
 function pushResultFlag(save: SaveData, result: "W" | "D" | "L") {
   const cur = (save.flags.lastResults as unknown as string | undefined) ?? "";
   const next = (cur + result).slice(-6);
-  save.flags.lastResults = next;
+  save.flags.lastResults = next as unknown as number;
   save.flags.winStreak = result === "W" ? (save.flags.winStreak ?? 0) + 1 : 0;
   save.flags.unbeaten = result !== "L" ? (save.flags.unbeaten ?? 0) + 1 : 0;
   save.flags.lossStreak = result === "L" ? (save.flags.lossStreak ?? 0) + 1 : 0;
@@ -1238,7 +1238,7 @@ export function startNextSeason(save: SaveData) {
   save.listed = {};
   save.offers = {};
   save.lastMatch = null;
-  save.flags = { ...save.flags, lastResults: "", winStreak: 0, lossStreak: 0, unbeaten: 0, promotedYouth: 0, signedCount: 0, soldCount: 0 };
+  save.flags = { ...save.flags, lastResults: "", winStreak: 0, lossStreak: 0, unbeaten: 0, promotedYouth: 0, signedCount: 0, soldCount: 0 } as unknown as Record<string, number>;
   save.weeklyWage = save.squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
   save.board = Math.min(100, save.board + 15);
@@ -1457,4 +1457,3 @@ export function lastResults(save: SaveData): string[] {
 // Re-exported for convenience in the UI
 export type { CupState, FinanceLogEntry, LeagueFixture, MarketPlayer, MatchEvent, TransferOffer, YouthPlayer };
 export { ATTR_KEYS };
-export const _unused = createMatch;

@@ -467,10 +467,15 @@ function avgCond(m: LiveMatch, t: 0 | 1): number {
   return arr.reduce((a, b) => a + b, 0) / arr.length;
 }
 
-export function applyTalk(m: LiveMatch, talk: 0 | 1 | 2): void {
-  m.home.talk = talk;
-  m.away.talk = 0;
+export function setTeamTalk(m: LiveMatch, team: 0 | 1, talk: 0 | 1 | 2): void {
+  const side = team === 0 ? m.home : m.away;
+  side.talk = talk;
   m.atHt = false;
+}
+
+export function applyTalk(m: LiveMatch, talk: 0 | 1 | 2): void {
+  setTeamTalk(m, 0, talk);
+  m.away.talk = 0;
 }
 
 export function applySub(m: LiveMatch, team: 0 | 1, outId: string, inId: string): boolean {

@@ -14,8 +14,8 @@ import {
   InputOTPSlot,
 } from "@/components/ui/input-otp";
 
+import { BrandMark } from "@/components/BrandMark";
 import { useAuth } from "@/hooks/use-auth";
-import logo from "@/assets/logo.svg";
 import { ArrowRight, Loader2, Mail, UserX } from "lucide-react";
 import { Suspense, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -121,18 +121,18 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
             <>
               <CardHeader className="text-center">
               <div className="flex justify-center">
-                    <img
-                      src={logo}
-                      alt="Lock Icon"
-                      width={64}
-                      height={64}
-                      className="rounded-lg mb-4 mt-4 cursor-pointer"
+                    <button
+                      type="button"
+                      className="cursor-pointer mb-4 mt-4"
                       onClick={() => navigate("/")}
-                    />
+                      aria-label="Back to home"
+                    >
+                      <BrandMark size={64} />
+                    </button>
                   </div>
-                <CardTitle className="text-xl">Get Started</CardTitle>
+                <CardTitle className="text-xl">Welcome to True Football</CardTitle>
                 <CardDescription>
-                  Enter your email to log in or sign up
+                  Sign in to take charge of your club
                 </CardDescription>
               </CardHeader>
               <form onSubmit={handleEmailSubmit}>
@@ -278,15 +278,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
           )}
 
           <div className="py-4 px-6 text-xs text-center text-muted-foreground bg-muted border-t rounded-b-lg">
-            Secured by{" "}
-            <a
-              href="https://freebuff.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="underline hover:text-primary transition-colors"
-            >
-              freebuff.com
-            </a>
+            True Football Clone · For the love of the game
           </div>
         </Card>
         </div>

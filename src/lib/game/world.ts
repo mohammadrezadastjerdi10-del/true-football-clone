@@ -2,6 +2,8 @@
 // handful of marquee real-world stars for the biggest clubs. Original data set
 // modelled on the structure of classic football manager games.
 
+import type { Pos } from "./types";
+
 export interface CountryDef {
   id: string;
   name: string;

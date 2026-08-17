@@ -1,12 +1,85 @@
+import { BrandWordmark } from "@/components/BrandMark";
+import { CareerStart } from "@/components/game/CareerStart";
+import { MatchView } from "@/components/game/MatchView";
+import { OverviewTab } from "@/components/game/OverviewTab";
+import { SquadTab } from "@/components/game/SquadTab";
+import { TacticsTab } from "@/components/game/TacticsTab";
+import { TrainingTab } from "@/components/game/TrainingTab";
+import { TransfersTab } from "@/components/game/TransfersTab";
+import { Crest } from "@/components/game/shared";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSave } from "@/hooks/use-save";
 import { useAuth } from "@/hooks/use-auth";
-import { LayoutDashboard, LogOut } from "lucide-react";
+import { clubById, leagueById } from "@/lib/game/world";
+import type { NextEvent } from "@/lib/game/types";
+import { fmtMoney } from "@/lib/game/format";
+import {
+  ArrowLeftRight,
+  Dumbbell,
+  Home,
+  Loader2,
+  LogOut,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
+import { cn } from "@/lib/utils";
+
+type TabId = "overview" | "squad" | "tactics" | "training" | "transfers";
+
+const TABS: { id: TabId; label: string; icon: typeof Home }[] = [
+  { id: "overview", label: "Overview", icon: Home },
+  { id: "squad", label: "Squad", icon: Users },
+  { id: "tactics", label: "Tactics", icon: SlidersHorizontal },
+  { id: "training", label: "Training", icon: Dumbbell },
+  { id: "transfers", label: "Transfers", icon: ArrowLeftRight },
+];
 
 export default function Dashboard() {
-  const { user, signOut } = useAuth();
+  const { save, isLoading } = useSave();
+  const { signOut } = useAuth();
   const navigate = useNavigate();
+  const [tab, setTab] = useState<TabId>("overview");
+  const [matchEv, setMatchEv] = useState<NextEvent | null>(null);
+  const [restart, setRestart] = useState(false);
+
+  if (isLoading) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background">
+        <Loader2 className="size-6 animate-spin text-muted-foreground" />
+      </main>
+    );
+  }
+
+  if (!save || restart) {
+    return <CareerStart />;
+  }
+
+  const data = save.data;
+
+  if (data.phase === "sacked") {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-background px-6">
+        <div className="w-full max-w-md rounded-2xl border border-red-500/20 bg-card p-8 text-center">
+          <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
+            <LogOut className="size-6" />
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight">The board has lost patience</h1>
+          <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+            Your time at {clubById(data.clubId).name} is over. Every manager gets
+            another chance — take a new job and write a better story.
+          </p>
+          <Button className="mt-6 w-full rounded-xl" size="lg" onClick={() => setRestart(true)}>
+            Start a new career
+          </Button>
+        </div>
+      </main>
+    );
+  }
+
+  const club = clubById(data.clubId);
+  const league = leagueById(data.clubId);
 
   const handleSignOut = async () => {
     await signOut();
@@ -14,42 +87,88 @@ export default function Dashboard() {
   };
 
   return (
-    <main className="min-h-screen bg-background px-6 py-10 text-foreground">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-8">
-        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">
-              Authenticated workspace
-            </p>
-            <h1 className="mt-1 text-3xl font-bold tracking-tight">
-              Welcome{user?.name ? `, ${user.name}` : ""}
-            </h1>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="cursor-pointer gap-2 self-start"
-            onClick={handleSignOut}
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </Button>
-        </header>
-
-        <Card className="border-border/70 shadow-none">
-          <CardHeader>
-            <div className="mb-3 flex size-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LayoutDashboard className="size-5" />
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Top bar */}
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <BrandWordmark markSize={30} />
+            <span className="hidden h-5 w-px bg-white/10 sm:block" />
+            <div className="hidden items-center gap-2.5 sm:flex">
+              <Crest club={club} size={28} />
+              <div className="leading-tight">
+                <p className="text-sm font-semibold tracking-tight">{club.short}</p>
+                <p className="text-[10px] text-muted-foreground">
+                  {league.name} · {data.label}
+                </p>
+              </div>
             </div>
-            <CardTitle>Your dashboard is ready</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm leading-6 text-muted-foreground">
-            Replace this starter content with the product&apos;s authenticated
-            experience. The route is protected and sign-in returns here by
-            default.
-          </CardContent>
-        </Card>
-      </div>
-    </main>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="hidden items-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 md:flex">
+              <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                Week
+              </span>
+              <span className="font-mono text-sm font-bold tabular-nums">{data.week}</span>
+            </div>
+            <div className="hidden items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1.5 sm:flex">
+              <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-400/80">
+                Budget
+              </span>
+              <span className={cn("font-mono text-sm font-bold tabular-nums", data.balance < 0 ? "text-red-400" : "text-emerald-300")}>
+                {fmtMoney(data.balance)}
+              </span>
+            </div>
+            <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={handleSignOut} aria-label="Sign out">
+              <LogOut className="size-4" />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      {/* Tab bar */}
+      <nav className="sticky top-16 z-20 border-b border-white/5 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setTab(t.id)}
+              className={cn(
+                "flex shrink-0 items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-medium transition-colors",
+                tab === t.id
+                  ? "border-emerald-500 text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <t.icon className="size-4" />
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* Content */}
+      <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+        {matchEv ? (
+          <MatchView
+            save={data}
+            ev={matchEv}
+            onClose={() => setMatchEv(null)}
+          />
+        ) : tab === "overview" ? (
+          <OverviewTab save={data} onPlayMatch={setMatchEv} />
+        ) : tab === "squad" ? (
+          <SquadTab save={data} />
+        ) : tab === "tactics" ? (
+          <TacticsTab save={data} />
+        ) : tab === "training" ? (
+          <TrainingTab save={data} />
+        ) : (
+          <TransfersTab save={data} />
+        )}
+      </main>
+    </div>
   );
 }

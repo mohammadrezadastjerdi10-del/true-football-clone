@@ -449,7 +449,7 @@ export function drawCupNextRound(rng: Rng, winners: string[], round: number): Cu
 // Career creation
 // ---------------------------------------------------------------------------
 
-export function createCareer(input: { seed: number; managerName: string; managerNat: string; clubId: string }): SaveData {
+export function createCareer(input: { seed: number; managerName: string; managerNat: string; clubId: string; lang?: "en" | "fa" }): SaveData {
   const rng = new Rng(input.seed);
   const club = clubById(input.clubId);
   const league = leagueById(club.league);
@@ -462,6 +462,7 @@ export function createCareer(input: { seed: number; managerName: string; manager
   const save: SaveData = {
     v: 1,
     seed: input.seed,
+    lang: input.lang ?? "en",
     manager: { name: input.managerName, nat: input.managerNat },
     clubId: club.id,
     season: 1,
@@ -501,10 +502,11 @@ export function createCareer(input: { seed: number; managerName: string; manager
   save.league.fixtures = fixturesForLeague(save);
   const draw = drawCupFirstRound(new Rng(hashSeed("cup", club.id, save.seed)), clubs);
   save.cup.rounds = [draw.fixtures];
+  save.cup.byes = draw.byes;
   save.weeklyWage = squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
-  addNews(save, "info", `Welcome to ${club.name}, ${input.managerName}! Season ${save.label} begins — your board expects a solid campaign.`);
-  addNews(save, "info", `Club budget: ${fmtMoney(save.balance)}. Sponsor: ${SPONSOR_LEVELS[0].name}. Stadium capacity: ${save.stadium.capacity.toLocaleString()}.`);
+  addNews(save, "info", L(save, `Welcome to ${club.name}, ${input.managerName}! Season ${save.label} begins — your board expects a solid campaign.`, `به ${club.name} خوش آمدید، ${input.managerName}! فصل ${save.label} آغاز شد — هیئت‌مدیره انتظار یک فصل خوب دارد.`));
+  addNews(save, "info", L(save, `Club budget: ${fmtMoney(save.balance)}. Sponsor: ${SPONSOR_LEVELS[0].name}. Stadium capacity: ${save.stadium.capacity.toLocaleString()}.`, `بودجه باشگاه: ${fmtMoney(save.balance)}. اسپانسر: ${SPONSOR_LEVELS[0].name}. ظرفیت ورزشگاه: ${save.stadium.capacity.toLocaleString()}.`));
   return save;
 }
 
@@ -516,14 +518,15 @@ export function autoPick(squad: Player[], formation: string): Record<string, str
   const slots = formationSlots(formation);
   const lineup: Record<string, string | null> = {};
   const used = new Set<string>();
-  // GKs first (must be GK pos)
+  // GKs first (must be GK pos). Lineup is keyed by the per-instance slot
+  // key (e.g. "CB-1"/"CB-2") so repeated labels can hold distinct players.
   for (const s of slots.filter((s) => s.role === "GK")) {
     const pick = squad.filter((p) => p.pos === "GK" && !used.has(p.id)).sort((a, b) => computeOverall(b) - computeOverall(a))[0];
     if (pick) {
-      lineup[s.slot] = pick.id;
+      lineup[s.key] = pick.id;
       used.add(pick.id);
     } else {
-      lineup[s.slot] = null;
+      lineup[s.key] = null;
     }
   }
   // Outfield: best fit
@@ -539,10 +542,10 @@ export function autoPick(squad: Player[], formation: string): Record<string, str
       }
     }
     if (best) {
-      lineup[s.slot] = best.id;
+      lineup[s.key] = best.id;
       used.add(best.id);
     } else {
-      lineup[s.slot] = null;
+      lineup[s.key] = null;
     }
   }
   return lineup;
@@ -563,7 +566,9 @@ export function buildEngineSideFromSquad(save: SaveData, squad: Player[], isHome
   const filled = new Array<boolean>(slots.length).fill(false);
   for (let i = 0; i < slots.length; i++) {
     const s = slots[i];
-    const id = tactics.lineup[s.slot];
+    // Prefer the per-instance key; fall back to the legacy label key so
+    // saves created before unique slot keys still load correctly.
+    const id = tactics.lineup[s.key] ?? tactics.lineup[s.slot];
     const p = squad.find((p) => p.id === id && !used.has(id));
     if (!p) continue;
     used.add(p.id);
@@ -616,7 +621,7 @@ export function buildOpponentSide(save: SaveData, opponentClubId: string, seed: 
   const squad = generateClubSquad(opponentClubId, save.season, save.seed);
   const club = clubById(opponentClubId);
   const rng = new Rng(hashSeed("opp", opponentClubId, save.season, seed));
-  const formation = rng.pick(["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "4-5-1"]);
+  const formation = rng.pick(["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "4-5-1", "5-3-2", "3-4-3"]);
   const lineup = autoPick(squad, formation);
   const slots = formationSlots(formation);
   const xi: EngineSlot[] = [];
@@ -626,7 +631,7 @@ export function buildOpponentSide(save: SaveData, opponentClubId: string, seed: 
   const filled = new Array<boolean>(slots.length).fill(false);
   for (let i = 0; i < slots.length; i++) {
     const s = slots[i];
-    const id = lineup[s.slot];
+    const id = lineup[s.key];
     const p = id ? squad.find((p) => p.id === id) : undefined;
     if (!p || used.has(p.id)) continue;
     used.add(p.id);
@@ -724,6 +729,25 @@ function addNews(save: SaveData, kind: SaveData["news"][number]["kind"], text: s
   if (save.news.length > 40) save.news.length = 40;
 }
 
+/** Pick the generated text for the save's language. */
+function L(save: SaveData, en: string, fa: string): string {
+  return save.lang === "fa" ? fa : en;
+}
+
+/** Decide a drawn cup tie with a deterministic penalty shootout. */
+function cupDecider(save: SaveData, home: string, away: string, round: number, hg: number, ag: number): string {
+  const rng = new Rng(hashSeed("pens", home, away, round, save.seed, hg, ag));
+  return rng.next() < 0.5 ? home : away;
+}
+
+/** "MCI 2–1 ARS (Cup)" score line, localised. */
+function cupScoreLine(save: SaveData, fx: CupFixture): string {
+  const pens = fx.hg === fx.ag;
+  const en = `${clubById(fx.home).short} ${fx.hg}–${fx.ag} ${clubById(fx.away).short} (Cup${pens ? " · pens" : ""})`;
+  const fa = `${clubById(fx.home).short} ${fx.hg}–${fx.ag} ${clubById(fx.away).short} (جام${pens ? " · پنالتی" : ""})`;
+  return L(save, en, fa);
+}
+
 function addFinance(save: SaveData, income: number, expense: number, note: string) {
   save.balance += income - expense;
   save.financeLog.unshift({ week: save.week + 1, income, expense, note });
@@ -804,42 +828,68 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
   const draw = m.hg === m.ag;
 
   // league table / cup
+  let cupAdvanced = false; // the user survived a drawn cup tie on penalties
   if (m.kind === "league") {
     recordLeagueMatch(save, m.round, m.home, m.away, m.hg, m.ag);
   } else {
     const roundIdx = m.round - 1;
     const fixtures = save.cup.rounds[roundIdx] ?? [];
-    const f = fixtures.find((f) => !f.played && ((f.home === m.home && f.away === m.away) || (f.home === m.away && f.away === m.home)));
+
+    // Record the user's own tie first (scores are stored home-first).
+    const f = fixtures.find((fx) => !fx.played && ((fx.home === m.home && fx.away === m.away) || (fx.home === m.away && fx.away === m.home)));
     if (f) {
       f.played = true;
       f.hg = m.home === f.home ? m.hg : m.ag;
       f.ag = m.home === f.home ? m.ag : m.hg;
-      f.winner = m.hg > m.ag ? m.home : m.ag > m.hg ? m.away : m.home;
+      f.winner = f.hg === f.ag ? cupDecider(save, f.home, f.away, m.round, f.hg, f.ag) : f.hg > f.ag ? f.home : f.away;
     }
-    const winner = m.hg > m.ag ? m.home : m.ag > m.hg ? m.away : m.home;
-    // update alive
-    save.cup.alive = save.cup.alive.filter((c) => c === winner);
-    if (winner === save.clubId) {
-      save.cup.userWon = save.cup.nextRound >= 4;
+
+    // Resolve every other tie in this round so the cup always runs as a
+    // full knockout (previously the other ties never played and the cup
+    // ended right after the user's first match).
+    const winners: string[] = [];
+    for (const fx of fixtures) {
+      if (!fx.played) {
+        const hStr = tierStrengthOf(fx.home, save);
+        const aStr = tierStrengthOf(fx.away, save);
+        const res = quickSim(hStr, aStr, hashSeed("cupmatch", fx.home, fx.away, save.week + 1, save.seed));
+        fx.played = true;
+        fx.hg = res.hg;
+        fx.ag = res.ag;
+        fx.winner = res.hg === res.ag ? cupDecider(save, fx.home, fx.away, m.round, res.hg, res.ag) : res.hg > res.ag ? fx.home : fx.away;
+        addNews(save, "cup", cupScoreLine(save, fx));
+      }
+      winners.push(fx.winner!);
     }
+
+    // Round-1 byes join the winners for the next round.
+    const byes = roundIdx === 0 ? save.cup.byes ?? [] : [];
+    save.cup.alive = [...winners, ...byes];
+
+    const champion = winners[0] ?? save.cup.alive[0];
     if (save.cup.nextRound >= 4 || save.cup.alive.length <= 1) {
       save.cup.done = true;
-      save.cup.winner = winner;
-      if (winner === save.clubId) {
+      save.cup.winner = champion;
+      if (champion === save.clubId) {
         save.seasonTrophies.push("Cup");
-        addNews(save, "cup", `🏆 ${clubById(save.clubId).name} win the National Cup!`);
+        addNews(save, "cup", L(save, `🏆 ${clubById(save.clubId).name} win the National Cup!`, `🏆 ${clubById(save.clubId).name} قهرمان جام حذفی شد!`));
       } else {
-        addNews(save, "cup", `${clubById(winner).name} win the National Cup.`);
+        addNews(save, "cup", L(save, `${clubById(champion).name} win the National Cup.`, `${clubById(champion).name} قهرمان جام حذفی شد.`));
       }
     } else {
-      // draw next round
       const nextRound = save.cup.nextRound + 1;
       save.cup.nextRound = nextRound;
-      save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, save.week)), save.cup.alive, nextRound));
+      save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, save.week + 1)), save.cup.alive, nextRound));
     }
+    if (champion === save.clubId) save.cup.userWon = save.cup.nextRound >= 4;
+    cupAdvanced = champion === save.clubId;
   }
 
-  pushResultFlag(save, win ? "W" : draw ? "D" : "L");
+  // A drawn cup tie is decided on penalties: advancing counts as a win,
+  // going out counts as a loss.
+  const pensWin = m.kind === "cup" && draw && cupAdvanced;
+  const pensLoss = m.kind === "cup" && draw && !cupAdvanced;
+  pushResultFlag(save, win || pensWin ? "W" : draw && !pensLoss ? "D" : "L");
 
   // player effects
   const byId = new Map(save.squad.map((p) => [p.id, p]));
@@ -879,13 +929,15 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
     }
   }
   // team morale
-  const delta = win ? 3 : draw ? 0 : -4;
+  const moraleWin = win || pensWin;
+  const moraleDraw = !moraleWin && draw && !pensLoss;
+  const delta = moraleWin ? 3 : moraleDraw ? 0 : -4;
   for (const p of save.squad) {
-    p.morale = Math.max(5, Math.min(100, p.morale + delta + (win && p.cond < 60 ? 1 : 0)));
+    p.morale = Math.max(5, Math.min(100, p.morale + delta + (moraleWin && p.cond < 60 ? 1 : 0)));
   }
 
   // board confidence
-  updateBoard(save, win ? 6 : draw ? 1 : -7);
+  updateBoard(save, moraleWin ? 6 : moraleDraw ? 1 : -7);
 
   // matchday income (home)
   if (m.home === save.clubId) {
@@ -900,10 +952,14 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
     addFinance(save, income, 0, `Matchday income vs ${clubById(m.away).short} (${attendance.toLocaleString()} fans)`);
   }
 
-  addNews(save, "match", `${clubById(m.home).short} ${m.hg}–${m.ag} ${clubById(m.away).short} (${m.kind === "cup" ? "Cup " + CUP_ROUND_SHORT[m.round - 1] : "League R" + m.round})`);
-  if (win) addNews(save, "match", `Victory for ${clubById(save.clubId).name}! ${scorerText(m, save)}`);
-  else if (draw) addNews(save, "match", `Points shared for ${clubById(save.clubId).name}. ${scorerText(m, save)}`);
-  else addNews(save, "match", `Defeat for ${clubById(save.clubId).name}. ${scorerText(m, save)}`);
+  addNews(save, "match", L(save,
+    `${clubById(m.home).short} ${m.hg}–${m.ag} ${clubById(m.away).short} (${m.kind === "cup" ? "Cup " + CUP_ROUND_SHORT[m.round - 1] : "League R" + m.round})`,
+    `${clubById(m.home).short} ${m.hg}–${m.ag} ${clubById(m.away).short} (${m.kind === "cup" ? "جام " + CUP_ROUND_SHORT[m.round - 1] : "لیگ هفته " + m.round})`));
+  if (win) addNews(save, "match", L(save, `Victory for ${clubById(save.clubId).name}! ${scorerText(m, save)}`, `پیروزی برای ${clubById(save.clubId).name}! ${scorerText(m, save)}`));
+  else if (pensWin) addNews(save, "match", L(save, `Through on penalties for ${clubById(save.clubId).name}! ${scorerText(m, save)}`, `صعود با ضربات پنالتی برای ${clubById(save.clubId).name}! ${scorerText(m, save)}`));
+  else if (pensLoss) addNews(save, "match", L(save, `Out on penalties for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `حذف در ضربات پنالتی برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
+  else if (draw) addNews(save, "match", L(save, `Points shared for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `تقسیم امتیاز برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
+  else addNews(save, "match", L(save, `Defeat for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `شکست برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
 }
 
 function scorerText(m: FinishedMatch, save: SaveData): string {
@@ -920,11 +976,11 @@ function updateBoard(save: SaveData, delta: number) {
   save.board = Math.max(0, Math.min(100, save.board + delta));
   if (save.board <= 20 && save.board > 0 && save.flags.boardWarned !== save.season) {
     save.flags.boardWarned = save.season;
-    addNews(save, "board", "⚠️ The board is unhappy with recent results. Improve quickly or face the consequences.");
+    addNews(save, "board", L(save, "⚠️ The board is unhappy with recent results. Improve quickly or face the consequences.", "⚠️ هیئت‌مدیره از نتایج اخیر ناراضی است. سریع اوضاع را بهتر کنید یا با عواقب آن روبه‌رو شوید."));
   }
   if (save.board <= 0 && save.phase === "league") {
     save.phase = "sacked";
-    addNews(save, "board", "❌ You have been sacked! The board has lost patience. Start a new career.");
+    addNews(save, "board", L(save, "❌ You have been sacked! The board has lost patience. Start a new career.", "❌ شما اخراج شدید! هیئت‌مدیره صبرش را از دست داده است. یک مربی‌گری جدید شروع کنید."));
   }
 }
 
@@ -952,7 +1008,7 @@ export function applyTraining(save: SaveData) {
       p.injury.weeks -= 1;
       if (p.injury.weeks <= 0) {
         p.injury = null;
-        addNews(save, "info", `${playerName(p)} has recovered from injury.`);
+        addNews(save, "info", L(save, `${playerName(p)} has recovered from injury.`, `${playerName(p)} از مصدومیت بازگشت.`));
       }
     }
     p.morale += (50 - p.morale) * 0.08;
@@ -1050,15 +1106,33 @@ export function applyYouthWeek(save: SaveData, rng: Rng) {
       sinceWeek: save.week,
       name: playerName(p),
     });
-    addNews(save, "youth", `🎓 Academy intake: ${playerName(p)} (${pos}, ${age}) joins the youth squad with big potential (${p.pot}).`);
+    addNews(save, "youth", L(save, `🎓 Academy intake: ${playerName(p)} (${pos}, ${age}) joins the youth squad with big potential (${p.pot}).`, `🎓 استعداد جدید آکادمی: ${playerName(p)} (${pos}, ${age}) با پتانسیل بالا (${p.pot}) به تیم جوانان پیوست.`));
   }
 }
+
+const ACHIEVEMENT_FA: Record<string, [string, string]> = {
+  first_win: ["اولین پیروزی", "اولین برد خود را ثبت کنید"],
+  streak_3: ["در آتش", "۳ پیروزی متوالی"],
+  streak_5: ["غیرقابل توقف", "۵ پیروزی متوالی"],
+  unbeaten_5: ["راه شکست‌ناپذیر", "۵ بازی بدون شکست"],
+  promote_3: ["محصول آکادمی", "۳ بازیکن جوان را بالا بیاورید"],
+  sign_5: ["معامله‌گر", "۵ بازیکن بخرید"],
+  sell_5: ["نابغه نقل‌وانتقالات", "۵ بازیکن بفروشید"],
+  stadium_3: ["باشگاه در حال رشد", "ورزشگاه را به سطح ۳ برسانید"],
+  stadium_5: ["یادمان", "ورزشگاه را به سطح ۵ برسانید"],
+  sponsor_4: ["قدرت شرکتی", "به سطح ۴ اسپانسر برسید"],
+  balance_100m: ["باشگاه ثروتمند", "۱۰۰ میلیون یورو در بانک داشته باشید"],
+  league_title: ["قهرمان!", "قهرمان لیگ شوید"],
+  cup_title: ["پادشاهان جام", "جام حذفی را ببرید"],
+  double: ["دبل", "در یک فصل قهرمان لیگ و جام شوید"],
+};
 
 function checkAchievements(save: SaveData) {
   const ach = (id: string, name: string, desc: string, icon: string) => {
     if (!save.achievements.includes(id)) {
       save.achievements.push(id);
-      addNews(save, "achievement", `${icon} Achievement unlocked: ${name} — ${desc}`);
+      const fa = ACHIEVEMENT_FA[id];
+      addNews(save, "achievement", L(save, `${icon} Achievement unlocked: ${name} — ${desc}`, `${icon} دستاورد جدید: ${fa ? fa[0] : name} — ${fa ? fa[1] : desc}`));
     }
   };
   if ((save.flags.winStreak ?? 0) >= 1) ach("first_win", "First Blood", "Win your first match", "🥇");
@@ -1090,14 +1164,14 @@ export function applyWeekly(save: SaveData, rng: Rng) {
   addFinance(save, sponsorIncome, wages, "Weekly sponsor & wages");
   if (save.balance < 0) {
     updateBoard(save, -2);
-    if (save.balance < -5_000_000) addNews(save, "finance", "⚠️ The club is in debt — sell players or reduce the wage bill!");
+    if (save.balance < -5_000_000) addNews(save, "finance", L(save, "⚠️ The club is in debt — sell players or reduce the wage bill!", "⚠️ باشگاه بدهکار است — بازیکن بفروشید یا دستمزدها را کاهش دهید!"));
   }
 
   // suspensions decay on league weeks
   for (const p of save.squad) {
     if (p.susp > 0) {
       p.susp -= 1;
-      if (p.susp <= 0) addNews(save, "info", `${playerName(p)} returns from suspension.`);
+      if (p.susp <= 0) addNews(save, "info", L(save, `${playerName(p)} returns from suspension.`, `${playerName(p)} از محرومیت بازگشت.`));
     }
   }
 
@@ -1108,7 +1182,7 @@ export function applyWeekly(save: SaveData, rng: Rng) {
 
   // league news
   const lastResults = (save.flags.lastResults as unknown as string) ?? "";
-  addNews(save, "result", `League position: ${ordinal(pos)} of ${LEAGUE_SIZE}. Form: ${lastResults || "—"}.`);
+  addNews(save, "result", L(save, `League position: ${ordinal(pos)} of ${LEAGUE_SIZE}. Form: ${lastResults || "—"}.`, `رتبه ${ordinal(pos)} از ${LEAGUE_SIZE}. فرم: ${lastResults || "—"}.`));
 
   checkAchievements(save);
 }
@@ -1148,16 +1222,17 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
         f.played = true;
         f.hg = res.hg;
         f.ag = res.ag;
-        f.winner = res.hg >= res.ag ? f.home : f.away;
+        f.winner = res.hg === res.ag ? cupDecider(save, f.home, f.away, cupRound, res.hg, res.ag) : res.hg > res.ag ? f.home : f.away;
         winners.push(f.winner);
-        addNews(save, "cup", `${clubById(f.home).short} ${res.hg}–${res.ag} ${clubById(f.away).short} (Cup)`);
+        addNews(save, "cup", cupScoreLine(save, f));
       }
       if (winners.length) {
-        save.cup.alive = winners;
+        // Round-1 byes join the winners for the next round.
+        save.cup.alive = cupRound === 1 ? winners.concat(save.cup.byes || []) : winners;
         if (cupRound >= 4 || winners.length <= 1) {
           save.cup.done = true;
           save.cup.winner = winners[0];
-          addNews(save, "cup", `${clubById(winners[0]).name} win the National Cup!`);
+          addNews(save, "cup", L(save, `${clubById(winners[0]).name} win the National Cup!`, `${clubById(winners[0]).name} قهرمان جام حذفی شد!`));
         } else {
           save.cup.nextRound = cupRound + 1;
           save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, week)), winners, cupRound + 1));
@@ -1177,7 +1252,7 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
           f.hg = res.hg;
           f.ag = res.ag;
         }
-        addNews(save, "result", `Round ${leagueRound} complete. Leader: ${clubById(standings(save)[0].clubId).name}.`);
+        addNews(save, "result", L(save, `Round ${leagueRound} complete. Leader: ${clubById(standings(save)[0].clubId).name}.`, `هفته ${leagueRound} کامل شد. صدرنشین: ${clubById(standings(save)[0].clubId).name}.`));
       }
     }
   }
@@ -1211,11 +1286,11 @@ export function endSeason(save: SaveData) {
   addFinance(save, prize + cupPrize, 0, `Prize money: ${ordinal(pos)} in league${cupPrize ? " + cup win" : ""}`);
   if (pos === 1) {
     save.seasonTrophies.push("League");
-    addNews(save, "achievement", `🏆 CHAMPIONS! ${clubById(save.clubId).name} win the league!`);
+    addNews(save, "achievement", L(save, `🏆 CHAMPIONS! ${clubById(save.clubId).name} win the league!`, `🏆 قهرمان! ${clubById(save.clubId).name} قهرمان لیگ شد!`));
   } else if (pos <= 3) {
-    addNews(save, "result", `Season complete: ${ordinal(pos)} place.`);
+    addNews(save, "result", L(save, `Season complete: ${ordinal(pos)} place.`, `پایان فصل: مقام ${ordinal(pos)}.`));
   } else {
-    addNews(save, "result", `Season complete: ${ordinal(pos)} place.`);
+    addNews(save, "result", L(save, `Season complete: ${ordinal(pos)} place.`, `پایان فصل: مقام ${ordinal(pos)}.`));
   }
   checkAchievements(save);
   save.history.push({
@@ -1265,6 +1340,7 @@ export function startNextSeason(save: SaveData) {
   };
   const draw = drawCupFirstRound(new Rng(hashSeed("cup", save.clubId, save.seed)), save.cup.alive);
   save.cup.rounds = [draw.fixtures];
+  save.cup.byes = draw.byes;
   save.market = generateMarket(rng);
   save.listed = {};
   save.offers = {};
@@ -1273,7 +1349,7 @@ export function startNextSeason(save: SaveData) {
   save.weeklyWage = save.squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
   save.board = Math.min(100, save.board + 15);
-  addNews(save, "info", `Season ${save.label} begins! New fixtures, new cup draw — go make history.`);
+  addNews(save, "info", L(save, `Season ${save.label} begins! New fixtures, new cup draw — go make history.`, `فصل ${save.label} آغاز شد! برنامه جدید، قرعه‌کشی جدید جام — بروید تاریخ بسازید.`));
 }
 
 // ---------------------------------------------------------------------------
@@ -1281,10 +1357,10 @@ export function startNextSeason(save: SaveData) {
 // ---------------------------------------------------------------------------
 
 export function buyPlayer(save: SaveData, marketId: string): { ok: boolean; error?: string } {
-  if (save.squad.length >= 28) return { ok: false, error: "Squad is full (max 28 players)." };
+  if (save.squad.length >= 28) return { ok: false, error: L(save, "Squad is full (max 28 players).", "تیم پر است (حداکثر ۲۸ بازیکن).") };
   const mp = save.market.find((m) => m.id === marketId);
-  if (!mp) return { ok: false, error: "Player not found on the market." };
-  if (save.balance < mp.asking) return { ok: false, error: "Not enough funds." };
+  if (!mp) return { ok: false, error: L(save, "Player not found on the market.", "بازیکن در بازار پیدا نشد.") };
+  if (save.balance < mp.asking) return { ok: false, error: L(save, "Not enough funds.", "بودجه کافی نیست.") };
   const p: Player = {
     id: `buy-${save.week}-${mp.id}`,
     first: mp.first,
@@ -1309,7 +1385,7 @@ export function buyPlayer(save: SaveData, marketId: string): { ok: boolean; erro
   save.balance -= mp.asking;
   save.flags.signedCount = (save.flags.signedCount ?? 0) + 1;
   save.financeLog.unshift({ week: save.week + 1, income: 0, expense: mp.asking, note: `Transfer: ${playerName(p)}` });
-  addNews(save, "transfer", `✍️ Signed ${playerName(p)} (${p.pos}, ${p.age}) for ${fmtMoney(mp.asking)}.`);
+  addNews(save, "transfer", L(save, `✍️ Signed ${playerName(p)} (${p.pos}, ${p.age}) for ${fmtMoney(mp.asking)}.`, `✍️ ${playerName(p)} (${p.pos}, ${p.age}) با ${fmtMoney(mp.asking)} به خدمت گرفته شد.`));
   checkAchievements(save);
   return { ok: true };
 }
@@ -1317,7 +1393,7 @@ export function buyPlayer(save: SaveData, marketId: string): { ok: boolean; erro
 export function transferListPlayer(save: SaveData, playerId: string, price: number) {
   save.listed[playerId] = price;
   const p = save.squad.find((p) => p.id === playerId);
-  if (p) addNews(save, "transfer", `📢 ${playerName(p)} has been placed on the transfer list for ${fmtMoney(price)}.`);
+  if (p) addNews(save, "transfer", L(save, `📢 ${playerName(p)} has been placed on the transfer list for ${fmtMoney(price)}.`, `📢 ${playerName(p)} با قیمت ${fmtMoney(price)} در فهرست فروش قرار گرفت.`));
 }
 
 export function unlistPlayer(save: SaveData, playerId: string) {
@@ -1328,15 +1404,15 @@ export function unlistPlayer(save: SaveData, playerId: string) {
 export function acceptOffer(save: SaveData, playerId: string, offerId: string): { ok: boolean; error?: string } {
   const offers = save.offers[playerId] ?? [];
   const offer = offers.find((o) => o.id === offerId);
-  if (!offer) return { ok: false, error: "Offer no longer available." };
+  if (!offer) return { ok: false, error: L(save, "Offer no longer available.", "پیشنهاد دیگر معتبر نیست.") };
   const idx = save.squad.findIndex((p) => p.id === playerId);
-  if (idx < 0) return { ok: false, error: "Player not found." };
+  if (idx < 0) return { ok: false, error: L(save, "Player not found.", "بازیکن پیدا نشد.") };
   const p = save.squad[idx];
   save.squad.splice(idx, 1);
   save.balance += offer.amount;
   save.flags.soldCount = (save.flags.soldCount ?? 0) + 1;
   save.financeLog.unshift({ week: save.week + 1, income: offer.amount, expense: 0, note: `Transfer out: ${playerName(p)} → ${offer.from}` });
-  addNews(save, "transfer", `💰 Sold ${playerName(p)} to ${offer.from} for ${fmtMoney(offer.amount)}.`);
+  addNews(save, "transfer", L(save, `💰 Sold ${playerName(p)} to ${offer.from} for ${fmtMoney(offer.amount)}.`, `💰 ${playerName(p)} به ${offer.from} با ${fmtMoney(offer.amount)} فروخته شد.`));
   delete save.listed[playerId];
   delete save.offers[playerId];
   checkAchievements(save);
@@ -1349,8 +1425,8 @@ export function rejectOffer(save: SaveData, playerId: string, offerId: string) {
 
 export function interactPlayer(save: SaveData, playerId: string, action: "praise" | "encourage" | "warn" | "fine"): { ok: boolean; error?: string } {
   const p = save.squad.find((p) => p.id === playerId);
-  if (!p) return { ok: false, error: "Player not found." };
-  if (save.flags[`talk:${playerId}`] === save.week) return { ok: false, error: `${playerName(p)} has already been spoken to this week.` };
+  if (!p) return { ok: false, error: L(save, "Player not found.", "بازیکن پیدا نشد.") };
+  if (save.flags[`talk:${playerId}`] === save.week) return { ok: false, error: L(save, `${playerName(p)} has already been spoken to this week.`, `${playerName(p)} این هفته قبلاً صحبت شده است.`) };
   save.flags[`talk:${playerId}`] = save.week;
   const form = avgForm(p);
   if (action === "praise") {
@@ -1364,7 +1440,7 @@ export function interactPlayer(save: SaveData, playerId: string, action: "praise
     p.morale = Math.max(5, p.morale - 3);
     addNews(save, "info", `🗣️ You warned ${playerName(p)} about his form.`);
   } else {
-    if (save.balance < p.wage) return { ok: false, error: "The club cannot afford the fine." };
+    if (save.balance < p.wage) return { ok: false, error: L(save, "The club cannot afford the fine.", "باشگاه توانایی پرداخت جریمه را ندارد.") };
     p.morale = Math.max(5, p.morale - 10);
     p.cond = Math.min(100, p.cond + 4);
     addFinance(save, 0, p.wage, `Fine: ${playerName(p)}`);
@@ -1383,8 +1459,8 @@ export function setTraining(save: SaveData, training: SaveData["training"]) {
 
 export function upgradeStadium(save: SaveData): { ok: boolean; error?: string } {
   const next = STADIUM_LEVELS[save.stadium.level];
-  if (!next) return { ok: false, error: "Stadium is already at maximum level." };
-  if (save.balance < next.cost) return { ok: false, error: "Not enough funds for the upgrade." };
+  if (!next) return { ok: false, error: L(save, "Stadium is already at maximum level.", "ورزشگاه در حداکثر سطح است.") };
+  if (save.balance < next.cost) return { ok: false, error: L(save, "Not enough funds for the upgrade.", "بودجه کافی برای ارتقا نیست.") };
   save.balance -= next.cost;
   save.stadium.level += 1;
   save.stadium.capacity = next.capacity;
@@ -1397,8 +1473,8 @@ export function upgradeStadium(save: SaveData): { ok: boolean; error?: string } 
 
 export function upgradeSponsor(save: SaveData): { ok: boolean; error?: string } {
   const next = SPONSOR_LEVELS[save.sponsor.level];
-  if (!next) return { ok: false, error: "Sponsor is already at maximum level." };
-  if (save.balance < next.cost) return { ok: false, error: "Not enough funds." };
+  if (!next) return { ok: false, error: L(save, "Sponsor is already at maximum level.", "اسپانسر در حداکثر سطح است.") };
+  if (save.balance < next.cost) return { ok: false, error: L(save, "Not enough funds.", "بودجه کافی نیست.") };
   save.balance -= next.cost;
   save.sponsor.level += 1;
   save.sponsor.weekly = next.weekly;
@@ -1410,11 +1486,11 @@ export function upgradeSponsor(save: SaveData): { ok: boolean; error?: string } 
 }
 
 export function promoteYouth(save: SaveData, youthId: string): { ok: boolean; error?: string } {
-  if (save.squad.length >= 28) return { ok: false, error: "Squad is full (max 28 players)." };
+  if (save.squad.length >= 28) return { ok: false, error: L(save, "Squad is full (max 28 players).", "تیم پر است (حداکثر ۲۸ بازیکن).") };
   const idx = save.youth.findIndex((y) => y.id === youthId);
-  if (idx < 0) return { ok: false, error: "Youth player not found." };
+  if (idx < 0) return { ok: false, error: L(save, "Youth player not found.", "بازیکن جوان پیدا نشد.") };
   const y = save.youth[idx];
-  if (y.age < 16) return { ok: false, error: `${y.name} is too young (16+ required).` };
+  if (y.age < 16) return { ok: false, error: L(save, `${y.name} is too young (16+ required).`, `${y.name} خیلی جوان است (حداقل ۱۶ سال لازم است).`) };
   const ovr = computeOverall({ attrs: y.attrs, pos: y.pos });
   const p: Player = {
     id: `pro-${y.id}`,

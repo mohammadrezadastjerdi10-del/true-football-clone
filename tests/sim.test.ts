@@ -113,14 +113,14 @@ describe("createCareer", () => {
 
   test("lineup fills every formation slot with a unique player", () => {
     const save = career();
-    const labels = new Set(formationSlots("4-4-2").map((s) => s.slot));
+    const slots = formationSlots("4-4-2");
     const entries = Object.entries(save.tactics.lineup);
-    expect(entries).toHaveLength(labels.size);
+    expect(entries).toHaveLength(slots.length); // one entry per unique slot key
     const ids = entries.map(([, id]) => id);
     expect(ids.every(Boolean)).toBe(true);
     expect(new Set(ids).size).toBe(ids.length);
-    const gkSlot = formationSlots("4-4-2").find((s) => s.role === "GK")!.slot;
-    const gk = save.squad.find((p) => p.id === save.tactics.lineup[gkSlot]);
+    const gkKey = slots.find((s) => s.role === "GK")!.key;
+    const gk = save.squad.find((p) => p.id === save.tactics.lineup[gkKey]);
     expect(gk?.pos).toBe("GK");
   });
 });
@@ -170,19 +170,18 @@ describe("player valuation", () => {
 });
 
 describe("autoPick & the lineup contract", () => {
-  test("autoPick fills every formation slot label with a unique player", () => {
+  test("autoPick fills every formation slot key with a unique player", () => {
     const save = career();
     for (const formation of ["4-4-2", "4-3-3", "4-2-3-1", "3-5-2", "4-5-1", "3-4-3"]) {
       const slots = formationSlots(formation);
-      const labels = new Set(slots.map((s) => s.slot));
       const lineup = autoPick(save.squad, formation);
       const entries = Object.entries(lineup);
-      expect(entries).toHaveLength(labels.size);
+      expect(entries).toHaveLength(slots.length); // one entry per unique slot key
       const ids = entries.map(([, id]) => id);
       expect(ids.every(Boolean)).toBe(true);
       expect(new Set(ids).size).toBe(ids.length);
-      const gkSlot = slots.find((s) => s.role === "GK")!.slot;
-      expect(save.squad.find((p) => p.id === lineup[gkSlot])?.pos).toBe("GK");
+      const gkKey = slots.find((s) => s.role === "GK")!.key;
+      expect(save.squad.find((p) => p.id === lineup[gkKey])?.pos).toBe("GK");
     }
   });
 

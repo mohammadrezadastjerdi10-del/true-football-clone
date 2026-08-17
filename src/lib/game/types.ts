@@ -111,6 +111,7 @@ export interface CupState {
   nextRound: number; // round to play next (1-based)
   alive: string[]; // clubs still in the cup
   rounds: CupFixture[][]; // completed fixture lists per round (index 0 = round 1)
+  byes?: string[]; // clubs that skipped round 1 (optional for legacy saves)
   done: boolean;
   winner?: string;
   userWon?: boolean;
@@ -224,6 +225,7 @@ export interface FinanceLogEntry {
 export interface SaveData {
   v: 1;
   seed: number;
+  lang?: "en" | "fa"; // UI/news language for this career
   manager: { name: string; nat: string };
   clubId: string;
   season: number; // 1-based

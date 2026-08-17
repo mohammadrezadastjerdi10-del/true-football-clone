@@ -58,6 +58,7 @@ export interface LiveMatch {
   teams: [TeamState, TeamState];
   events: MatchEvent[];
   rng: Rng;
+  lang: "en" | "fa";
 }
 
 export interface FormationSlot {
@@ -65,9 +66,12 @@ export interface FormationSlot {
   role: Pos;
   x: number; // 0-100, attacking direction is up (small y)
   y: number;
+  key: string; // unique per slot instance ("CB-2"), used as the lineup key
 }
 
-export const FORMATIONS: Record<string, { name: string; slots: FormationSlot[] }> = {
+type FormationSlotDef = Omit<FormationSlot, "key">;
+
+export const FORMATIONS: Record<string, { name: string; slots: FormationSlotDef[] }> = {
   "4-4-2": {
     name: "4-4-2",
     slots: [
@@ -183,7 +187,10 @@ export const FORMATIONS: Record<string, { name: string; slots: FormationSlot[] }
 };
 
 export function formationSlots(key: string): FormationSlot[] {
-  return FORMATIONS[key]?.slots ?? FORMATIONS["4-4-2"].slots;
+  const slots = FORMATIONS[key]?.slots ?? FORMATIONS["4-4-2"].slots;
+  // Attach a unique per-instance key so formations with repeated labels
+  // (two CBs, two CMs, …) can hold distinct players in the lineup map.
+  return slots.map((s, i) => ({ ...s, key: `${s.slot}-${i + 1}` }));
 }
 
 // ---------------------------------------------------------------------------
@@ -246,7 +253,7 @@ export function computeSideStrength(side: EngineSide): void {
 // Match creation & stepping
 // ---------------------------------------------------------------------------
 
-export function createMatch(home: EngineSide, away: EngineSide, seed: number): LiveMatch {
+export function createMatch(home: EngineSide, away: EngineSide, seed: number, lang: "en" | "fa" = "en"): LiveMatch {
   computeSideStrength(home);
   computeSideStrength(away);
   return {
@@ -256,6 +263,7 @@ export function createMatch(home: EngineSide, away: EngineSide, seed: number): L
     atHt: false,
     home,
     away,
+    lang,
     teams: [
       {
         goals: 0, shots: 0, onTarget: 0, corners: 0, fouls: 0, yellows: 0, reds: 0, xg: 0,
@@ -334,6 +342,52 @@ const RED_TEXTS = ["RED CARD! {p} is sent off for {t}!"];
 const OFFSIDE_TEXTS = ["{p} is caught offside.", "Offside — {p} strayed too early."];
 const INJURY_TEXTS = ["{p} is down and needs treatment.", "{p} limps off after a heavy challenge."];
 
+// Persian commentary pools — same {p} / {t} placeholders.
+const FA_GOAL_TEXTS = [
+  "{p} با خونسردی برای {t} گل می‌زند!",
+  "گل! {p} دروازه {t} را باز کرد!",
+  "{p} توپ را به گوشه دروازه فرستاد — گل برای {t}!",
+  "ضربه‌ای غیرقابل مهار! {p} برای {t} گل زد.",
+  "{p} با ضربه سر از فاصله کم گل زد — {t}.",
+  "{p} توپ را به گوشه دروازه پیچاند! {t} پیش افتاد.",
+  "خلاف جریان بازی، {p} برای {t} گل زد!",
+];
+const FA_SAVE_TEXTS = [
+  "سیو عالی! ضربه {p} مهار شد.",
+  "{p} دروازه‌بان را به واکنش عالی واداشت.",
+  "دروازه‌بان ضربه {p} را دفع کرد.",
+];
+const FA_WIDE_TEXTS = [
+  "{p} ضربه را کمی به بیرون زد.",
+  "{p} توپ را بالای دروازه فرستاد.",
+  "شوت {p}... بیرون از قاب دروازه.",
+];
+const FA_POST_TEXTS = ["{p} به تیر دروازه زد! چقدر برای {t} بدشانسی بود."];
+const FA_BLOCK_TEXTS = ["ضربه {p} توسط مدافع برگشت داده شد.", "{p} نتوانست شوت بزند — مهار شد!"];
+const FA_CORNER_TEXTS = ["{t} صاحب کرنر شد.", "کرنر برای {t}."];
+const FA_FOUL_TEXTS = ["خطای {p}.", "{p} حریف را متوقف کرد.", "خطای {p} — ضربه ایستگاهی برای حریف."];
+const FA_YELLOW_TEXTS = ["{p} کارت زرد گرفت.", "{p} اخطار گرفت."];
+const FA_RED_TEXTS = ["کارت قرمز! {p} از زمین اخراج شد — {t}!"];
+const FA_OFFSIDE_TEXTS = ["{p} در موقعیت آفساید بود.", "آفساید — {p} خیلی زود حرکت کرد."];
+const FA_INJURY_TEXTS = ["{p} آسیب دید و نیاز به درمان دارد.", "{p} بعد از برخورد شدید از زمین خارج شد."];
+
+const TEXTS: Record<"en" | "fa", Record<string, string[]>> = {
+  en: {
+    goal: GOAL_TEXTS, save: SAVE_TEXTS, wide: WIDE_TEXTS, post: POST_TEXTS, block: BLOCK_TEXTS,
+    corner: CORNER_TEXTS, foul: FOUL_TEXTS, yellow: YELLOW_TEXTS, red: RED_TEXTS,
+    offside: OFFSIDE_TEXTS, injury: INJURY_TEXTS,
+  },
+  fa: {
+    goal: FA_GOAL_TEXTS, save: FA_SAVE_TEXTS, wide: FA_WIDE_TEXTS, post: FA_POST_TEXTS, block: FA_BLOCK_TEXTS,
+    corner: FA_CORNER_TEXTS, foul: FA_FOUL_TEXTS, yellow: FA_YELLOW_TEXTS, red: FA_RED_TEXTS,
+    offside: FA_OFFSIDE_TEXTS, injury: FA_INJURY_TEXTS,
+  },
+};
+
+function tpick(m: LiveMatch, kind: string): string {
+  return m.rng.pick(TEXTS[m.lang][kind]);
+}
+
 export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
   const end = Math.min(m.minute + minutes, 90);
   while (m.minute < end && !m.ended) {
@@ -343,7 +397,7 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     // caller can deliver the team talk and flip `half` to 2.
     if (m.half === 1 && minute > 45) {
       m.atHt = true;
-      addEvent(m, 45, "ht", 0, "Half-time");
+      addEvent(m, 45, "ht", 0, m.lang === "fa" ? "پایان نیمه اول" : "Half-time");
       break;
     }
 
@@ -386,23 +440,23 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
         m.teams[attacker].onTarget += 1;
         m.teams[attacker].momentum = Math.min(100, m.teams[attacker].momentum + 25);
         const assistP = m.rng.pick(attackerSide(m, attacker).filter((s) => s.role !== "GK" && s.p.id !== shooter.id)).p;
-        const text = m.rng.pick(GOAL_TEXTS).replace("{p}", pname(shooter)).replace("{t}", sideA.short);
+        const text = tpick(m, "goal").replace("{p}", pname(shooter)).replace("{t}", sideA.short);
         addEvent(m, minute, "goal", attacker, text, shooter.id, assistP.id);
       } else if (roll < goalP + 0.34) {
-        const text = m.rng.pick(SAVE_TEXTS).replace("{p}", pname(shooter));
+        const text = tpick(m, "save").replace("{p}", pname(shooter));
         addEvent(m, minute, "save", attacker, text, shooter.id);
       } else if (roll < goalP + 0.34 + 0.16) {
         m.teams[defender].corners += 1;
-        const text = m.rng.pick(CORNER_TEXTS).replace("{t}", sideA.short);
+        const text = tpick(m, "corner").replace("{t}", sideA.short);
         addEvent(m, minute, "corner", attacker, text, shooter.id);
       } else if (roll < goalP + 0.34 + 0.16 + 0.16) {
-        const text = m.rng.pick(WIDE_TEXTS).replace("{p}", pname(shooter));
+        const text = tpick(m, "wide").replace("{p}", pname(shooter));
         addEvent(m, minute, "chance", attacker, text, shooter.id);
       } else if (roll < goalP + 0.34 + 0.16 + 0.16 + 0.07) {
-        const text = m.rng.pick(POST_TEXTS).replace("{p}", pname(shooter)).replace("{t}", sideA.short);
+        const text = tpick(m, "post").replace("{p}", pname(shooter)).replace("{t}", sideA.short);
         addEvent(m, minute, "post", attacker, text, shooter.id);
       } else {
-        const text = m.rng.pick(BLOCK_TEXTS).replace("{p}", pname(shooter));
+        const text = tpick(m, "block").replace("{p}", pname(shooter));
         addEvent(m, minute, "chance", attacker, text, shooter.id);
       }
     }
@@ -412,17 +466,17 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     if (m.rng.chance(0.016 * pressF + 0.008)) {
       const fouler = m.rng.pick(attackerSide(m, defender).filter((s) => s.role !== "GK")).p;
       m.teams[defender].fouls += 1;
-      const text = m.rng.pick(FOUL_TEXTS).replace("{p}", pname(fouler));
+      const text = tpick(m, "foul").replace("{p}", pname(fouler));
       addEvent(m, minute, "foul", defender, text, fouler.id);
       if (m.rng.chance(0.16 + pressF * 0.05)) {
         const alreadyYellow = m.events.some((e) => e.type === "yellow" && e.player === fouler.id);
         if (alreadyYellow || m.rng.chance(0.06)) {
           m.teams[defender].reds += 1;
-          const text = m.rng.pick(RED_TEXTS).replace("{p}", pname(fouler)).replace("{t}", sideD.short);
+          const text = tpick(m, "red").replace("{p}", pname(fouler)).replace("{t}", sideD.short);
           addEvent(m, minute, "red", defender, text, fouler.id);
         } else {
           m.teams[defender].yellows += 1;
-          const text = m.rng.pick(YELLOW_TEXTS).replace("{p}", pname(fouler));
+          const text = tpick(m, "yellow").replace("{p}", pname(fouler));
           addEvent(m, minute, "yellow", defender, text, fouler.id);
         }
       }
@@ -431,14 +485,14 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     // Offside
     if (m.rng.chance(0.02)) {
       const off = m.rng.pick(attackerSide(m, attacker).filter((s) => s.role === "FW")).p;
-      const text = m.rng.pick(OFFSIDE_TEXTS).replace("{p}", pname(off));
+      const text = tpick(m, "offside").replace("{p}", pname(off));
       addEvent(m, minute, "offside", attacker, text, off.id);
     }
 
     // Injury (skipped when a red card left a team short)
     if (m.rng.chance(0.0028 * (1 - Math.min(0.5, (100 - avgCond(m, attacker)) / 100)))) {
       const victim = m.rng.pick(attackerSide(m, attacker)).p;
-      const text = m.rng.pick(INJURY_TEXTS).replace("{p}", pname(victim));
+      const text = tpick(m, "injury").replace("{p}", pname(victim));
       addEvent(m, minute, "injury", attacker, text, victim.id);
     }
 
@@ -447,7 +501,7 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     // which left every match permanently stuck at minute 90.)
     if (m.half === 2 && minute >= 90) {
       m.ended = true;
-      addEvent(m, 90, "ft", 0, "Full-time");
+      addEvent(m, 90, "ft", 0, m.lang === "fa" ? "پایان بازی" : "Full-time");
     }
   }
   return m;
@@ -499,7 +553,11 @@ export function applySub(m: LiveMatch, team: 0 | 1, outId: string, inId: string)
   if (xiIdx >= 0) side.xi[xiIdx] = newSlot;
   computeSideStrength(side);
   const sideName = team === 0 ? m.home.short : m.away.short;
-  addEvent(m, m.minute, "sub", team, `${sideName} substitution: ${inSlot.p.name} on for ${outSlot.p.name}.`, outId, inId);
+  const subText =
+    m.lang === "fa"
+      ? `تعویض ${sideName}: ${inSlot.p.name} به جای ${outSlot.p.name}`
+      : `${sideName} substitution: ${inSlot.p.name} on for ${outSlot.p.name}.`;
+  addEvent(m, m.minute, "sub", team, subText, outId, inId);
   return true;
 }
 

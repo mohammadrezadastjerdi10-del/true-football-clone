@@ -10,11 +10,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import logo from "@/assets/logo.svg";
 import { useAuth } from "@/hooks/use-auth";
+import { useLang } from "@/lib/i18n";
 import { Home, LogOut } from "lucide-react";
 import { useNavigate } from "react-router";
 
 export function LogoDropdown() {
   const { isAuthenticated, signOut } = useAuth();
+  const { t } = useLang();
   const navigate = useNavigate();
 
   const handleSignOut = async () => {
@@ -46,7 +48,7 @@ export function LogoDropdown() {
       <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuItem onClick={handleGoHome} className="cursor-pointer">
           <Home className="mr-2 h-4 w-4" />
-          Landing Page
+          {t("nf.home")}
         </DropdownMenuItem>
         {isAuthenticated && (
           <>
@@ -56,7 +58,7 @@ export function LogoDropdown() {
               className="cursor-pointer text-destructive focus:text-destructive"
             >
               <LogOut className="mr-2 h-4 w-4" />
-              Sign Out
+              {t("hdr.signout")}
             </DropdownMenuItem>
           </>
         )}

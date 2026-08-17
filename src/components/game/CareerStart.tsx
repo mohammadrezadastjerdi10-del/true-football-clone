@@ -12,6 +12,7 @@ import { useSave } from "@/hooks/use-save";
 import { Crest, Flag } from "@/components/game/shared";
 import { useAuth } from "@/hooks/use-auth";
 import { COUNTRIES, LEAGUES } from "@/lib/game/world";
+import { LangToggle, useLang } from "@/lib/i18n";
 import { Loader2, LogOut, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router";
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 export function CareerStart() {
   const { createCareer } = useSave();
   const { user, signOut } = useAuth();
+  const { t, lang } = useLang();
   const navigate = useNavigate();
   const [name, setName] = useState(user?.name ?? "");
   const [nat, setNat] = useState("eng");
@@ -41,11 +43,12 @@ export function CareerStart() {
         managerName: name.trim() || "Manager",
         managerNat: nat,
         clubId,
+        lang,
       });
-      toast.success(`Welcome to ${league.clubs.find((c) => c.id === clubId)?.name ?? "the club"}!`);
+      toast.success(t("cs.welcome", { club: league.clubs.find((c) => c.id === clubId)?.name ?? "the club" }));
     } catch (e) {
       console.error(e);
-      toast.error("Could not start the career. Please try again.");
+      toast.error(t("cs.error"));
     } finally {
       setLoading(false);
     }
@@ -55,24 +58,25 @@ export function CareerStart() {
     <main className="min-h-screen bg-background px-6 py-8 text-foreground">
       <div className="mx-auto max-w-5xl">
         <header className="flex items-center justify-between">
-          <BrandWordmark sub="Career setup" />
-          <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={handleSignOut}>
-            <LogOut className="size-4" />
-            Sign out
-          </Button>
+          <BrandWordmark sub={t("cs.sub")} />
+          <div className="flex items-center gap-3">
+            <LangToggle />
+            <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={handleSignOut}>
+              <LogOut className="size-4" />
+              {t("hdr.signout")}
+            </Button>
+          </div>
         </header>
 
         <div className="mt-12 max-w-2xl">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-emerald-400">
-            New career
+            {t("cs.newCareer")}
           </p>
           <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
-            Take the job
+            {t("cs.takeJob")}
           </h1>
           <p className="mt-3 text-base leading-relaxed text-muted-foreground">
-            Pick a manager, choose your club, and walk into the dressing room.
-            The board has already made its mind up about you — it&apos;s on you
-            to change it.
+            {t("cs.intro")}
           </p>
         </div>
 
@@ -81,20 +85,20 @@ export function CareerStart() {
           <div className="space-y-5 rounded-2xl border border-white/8 bg-card p-6 h-fit">
             <div>
               <label htmlFor="manager-name" className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Manager name
+                {t("cs.managerName")}
               </label>
               <Input
                 id="manager-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Your name"
+                placeholder={t("cs.yourName")}
                 className="mt-2"
                 maxLength={24}
               />
             </div>
             <div>
               <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Nationality
+                {t("cs.nationality")}
               </span>
               <Select value={nat} onValueChange={setNat}>
                 <SelectTrigger className="mt-2 w-full">
@@ -113,7 +117,7 @@ export function CareerStart() {
             </div>
             <div>
               <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                League
+                {t("cs.league")}
               </span>
               <Select value={leagueId} onValueChange={(v) => {
                 setLeagueId(v);
@@ -143,12 +147,12 @@ export function CareerStart() {
               {loading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Signing you in…
+                  {t("cs.signingIn")}
                 </>
               ) : (
                 <>
                   <ShieldCheck className="size-4" />
-                  Start the career
+                  {t("cs.startCareer")}
                 </>
               )}
             </Button>
@@ -157,7 +161,7 @@ export function CareerStart() {
           {/* Club picker */}
           <div>
             <p className="mb-3 text-sm font-medium text-muted-foreground">
-              Choose your club — {league.flag} {league.name}
+              {t("cs.chooseClub", { flag: league.flag, league: league.name })}
             </p>
             <div className="grid gap-3 sm:grid-cols-2">
               {league.clubs.map((club) => {
@@ -179,7 +183,7 @@ export function CareerStart() {
                         {club.name}
                       </div>
                       <div className="mt-0.5 truncate text-xs text-muted-foreground">
-                        {club.stadium} · Tier {club.tier}
+                        {t("cs.clubTier", { stadium: club.stadium, tier: club.tier })}
                       </div>
                     </div>
                   </button>

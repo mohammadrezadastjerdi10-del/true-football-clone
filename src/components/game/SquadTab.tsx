@@ -11,9 +11,10 @@ import {
   SquadRowMeta,
 } from "@/components/game/shared";
 import { fmtMoney } from "@/lib/game/format";
-import { cn } from "@/lib/utils";
+import { num, useLang } from "@/lib/i18n";
 
 export function SquadTab({ save }: { save: SaveData }) {
+  const { t, lang } = useLang();
   const squad = useMemo(() => sortSquad(save.squad), [save.squad]);
   const wage = save.squad.reduce((a, p) => a + p.wage, 0);
 
@@ -21,8 +22,8 @@ export function SquadTab({ save }: { save: SaveData }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <SectionTitle
-          title="First-team squad"
-          sub={`${save.squad.length} players · weekly wages ${fmtMoney(wage)}`}
+          title={t("sq.title")}
+          sub={t("sq.sub", { count: num(lang, save.squad.length), wages: fmtMoney(wage) })}
         />
         <div className="flex gap-2 text-xs text-muted-foreground">
           {(["GK", "DF", "MF", "FW"] as const).map((pos) => {
@@ -32,7 +33,7 @@ export function SquadTab({ save }: { save: SaveData }) {
               : 0;
             return (
               <span key={pos} className="rounded-lg border border-white/8 bg-white/[0.03] px-2.5 py-1.5">
-                {pos} · {list.length} · <span className="font-mono tabular-nums text-foreground/80">{avg}</span>
+                {pos} · {num(lang, list.length)} · <span className="font-mono tabular-nums text-foreground/80">{num(lang, avg)}</span>
               </span>
             );
           })}
@@ -44,15 +45,15 @@ export function SquadTab({ save }: { save: SaveData }) {
           <table className="w-full min-w-[720px] text-sm">
             <thead>
               <tr className="text-left text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                <th className="px-4 py-3">Player</th>
-                <th className="px-3 py-3 text-center">Pos</th>
-                <th className="px-3 py-3 text-center">Ovr</th>
-                <th className="px-3 py-3 text-center">Pot</th>
-                <th className="px-3 py-3 text-center">Form</th>
-                <th className="hidden px-3 py-3 text-center md:table-cell">Recent</th>
-                <th className="hidden px-3 py-3 text-center sm:table-cell">Morale</th>
-                <th className="hidden px-3 py-3 text-center sm:table-cell">Condition</th>
-                <th className="px-4 py-3 text-right">Value</th>
+                <th className="px-4 py-3">{t("sq.player")}</th>
+                <th className="px-3 py-3 text-center">{t("sq.pos")}</th>
+                <th className="px-3 py-3 text-center">{t("sq.ovr")}</th>
+                <th className="px-3 py-3 text-center">{t("sq.pot")}</th>
+                <th className="px-3 py-3 text-center">{t("sq.form")}</th>
+                <th className="hidden px-3 py-3 text-center md:table-cell">{t("sq.recent")}</th>
+                <th className="hidden px-3 py-3 text-center sm:table-cell">{t("sq.morale")}</th>
+                <th className="hidden px-3 py-3 text-center sm:table-cell">{t("sq.condition")}</th>
+                <th className="px-4 py-3 text-right">{t("sq.value")}</th>
               </tr>
             </thead>
             <tbody>
@@ -68,7 +69,7 @@ export function SquadTab({ save }: { save: SaveData }) {
                     <PlayerOverall p={p} />
                   </td>
                   <td className="px-3 py-3 text-center font-mono text-xs tabular-nums text-muted-foreground">
-                    {p.pot}
+                    {num(lang, p.pot)}
                   </td>
                   <td className="px-3 py-3 text-center">
                     <PlayerForm p={p} />
@@ -82,7 +83,7 @@ export function SquadTab({ save }: { save: SaveData }) {
                     <div className="mx-auto w-20 space-y-1">
                       <Bar value={p.morale} tone={p.morale > 55 ? "ok" : p.morale > 30 ? "warn" : "bad"} />
                       <span className="block text-center font-mono text-[10px] tabular-nums text-muted-foreground">
-                        {p.morale}
+                        {num(lang, p.morale)}
                       </span>
                     </div>
                   </td>
@@ -90,7 +91,7 @@ export function SquadTab({ save }: { save: SaveData }) {
                     <div className="mx-auto w-20 space-y-1">
                       <Bar value={p.cond} tone={p.cond > 55 ? "ok" : p.cond > 35 ? "warn" : "bad"} />
                       <span className="block text-center font-mono text-[10px] tabular-nums text-muted-foreground">
-                        {p.cond}
+                        {num(lang, p.cond)}
                       </span>
                     </div>
                   </td>
@@ -105,9 +106,7 @@ export function SquadTab({ save }: { save: SaveData }) {
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        Overall is weighted for the player&apos;s position. Form is the average of
-        the last five match ratings; condition and morale are drained by
-        matchdays and restored by training.
+        {t("sq.footnote")}
       </p>
     </div>
   );

@@ -9,8 +9,10 @@ import {
 } from "@/components/ui/select";
 import { useSave } from "@/hooks/use-save";
 import { computeOverall, FOCUS_LABELS, playerName } from "@/lib/game/sim";
+import { fmtMoney } from "@/lib/game/format";
 import type { FocusKey, SaveData } from "@/lib/game/types";
 import { Flag, Ovr, PosBadge, SectionTitle } from "@/components/game/shared";
+import { num, useLang } from "@/lib/i18n";
 import { Loader2, Rocket, Save, UserX } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -19,6 +21,7 @@ const FOCUS_KEYS = Object.keys(FOCUS_LABELS) as FocusKey[];
 
 export function TrainingTab({ save }: { save: SaveData }) {
   const { setTraining, promoteYouth, releaseYouth, isLoading } = useSave();
+  const { t, lang } = useLang();
   const [focus, setFocus] = useState<FocusKey>(save.training.focus);
   const [intensity, setIntensity] = useState(save.training.intensity);
   const [dirty, setDirty] = useState(false);
@@ -28,9 +31,9 @@ export function TrainingTab({ save }: { save: SaveData }) {
     try {
       await setTraining({ focus, intensity, indiv: {} });
       setDirty(false);
-      toast.success("Training plan updated.");
+      toast.success(t("tr.saved"));
     } catch {
-      toast.error("Could not save the training plan.");
+      toast.error(t("tr.saveError"));
     }
   };
 
@@ -38,10 +41,10 @@ export function TrainingTab({ save }: { save: SaveData }) {
     setBusyId(id);
     try {
       const res = await promoteYouth({ youthId: id });
-      if (!res.ok) toast.error(res.error ?? "Could not promote.");
-      else toast.success("Promoted to the first team!");
+      if (!res.ok) toast.error(res.error ?? t("tr.promoteError"));
+      else toast.success(t("tr.promoted"));
     } catch {
-      toast.error("Could not promote.");
+      toast.error(t("tr.promoteError"));
     } finally {
       setBusyId(null);
     }
@@ -51,9 +54,9 @@ export function TrainingTab({ save }: { save: SaveData }) {
     setBusyId(id);
     try {
       await releaseYouth({ youthId: id });
-      toast.info("Released from the academy.");
+      toast.info(t("tr.released"));
     } catch {
-      toast.error("Could not release.");
+      toast.error(t("tr.releaseError"));
     } finally {
       setBusyId(null);
     }
@@ -65,13 +68,13 @@ export function TrainingTab({ save }: { save: SaveData }) {
       <div className="space-y-6">
         <div className="rounded-2xl border border-white/8 bg-card p-6">
           <SectionTitle
-            title="Training plan"
-            sub="Weekly focus for the whole first team"
+            title={t("tr.title")}
+            sub={t("tr.sub")}
           />
           <div className="mt-5 space-y-5">
             <div>
               <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Focus
+                {t("tr.focus")}
               </span>
               <Select value={focus} onValueChange={(v) => { setFocus(v as FocusKey); setDirty(true); }}>
                 <SelectTrigger className="mt-2 w-full">
@@ -80,7 +83,7 @@ export function TrainingTab({ save }: { save: SaveData }) {
                 <SelectContent>
                   {FOCUS_KEYS.map((k) => (
                     <SelectItem key={k} value={k}>
-                      {FOCUS_LABELS[k]}
+                      {t(`tr.focus.${k}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -89,10 +92,10 @@ export function TrainingTab({ save }: { save: SaveData }) {
             <div>
               <div className="mb-3 flex items-center justify-between">
                 <span className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                  Intensity
+                  {t("tr.intensity")}
                 </span>
                 <span className="font-mono text-sm font-bold tabular-nums text-emerald-400">
-                  {intensity}
+                  {num(lang, intensity)}
                 </span>
               </div>
               <Slider
@@ -103,29 +106,29 @@ export function TrainingTab({ save }: { save: SaveData }) {
                 onValueChange={([v]) => { setIntensity(v); setDirty(true); }}
               />
               <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
-                <span>Recovery</span>
-                <span>Peak fitness</span>
+                <span>{t("tr.intensity.lo")}</span>
+                <span>{t("tr.intensity.hi")}</span>
               </div>
             </div>
             <Button className="w-full rounded-xl" onClick={saveTraining} disabled={!dirty || isLoading}>
               {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-              Save plan
+              {t("tr.save")}
             </Button>
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/8 bg-card p-6">
-          <SectionTitle title="Club facilities" sub="Upgrades land in the club tab" />
+          <SectionTitle title={t("tr.facilities")} sub={t("tr.facilitiesSub")} />
           <div className="mt-4 space-y-2.5 text-sm text-muted-foreground">
             <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
-              <span>Stadium</span>
+              <span>{t("tr.stadium")}</span>
               <span className="font-medium text-foreground">
-                {save.stadium.name} · Lv {save.stadium.level}
+                {save.stadium.name} · {t("tf.stadiumLine", { lvl: num(lang, save.stadium.level), cap: num(lang, save.stadium.capacity), ticket: num(lang, save.stadium.ticket) })}
               </span>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-white/5 bg-white/[0.03] px-4 py-3">
-              <span>Sponsor</span>
-              <span className="font-medium text-foreground">Level {save.sponsor.level}</span>
+              <span>{t("tr.sponsor")}</span>
+              <span className="font-medium text-foreground">{t("tf.sponsorLine", { lvl: num(lang, save.sponsor.level), amount: fmtMoney(save.sponsor.weekly) })}</span>
             </div>
           </div>
         </div>
@@ -134,13 +137,13 @@ export function TrainingTab({ save }: { save: SaveData }) {
       {/* Youth academy */}
       <div className="rounded-2xl border border-white/8 bg-card p-6">
         <SectionTitle
-          title="Youth academy"
-          sub={`${save.youth.length} prospects · promote the gems, release the rest`}
+          title={t("tr.youth")}
+          sub={t("tr.youthSub", { count: num(lang, save.youth.length) })}
         />
         <div className="mt-5 space-y-2.5">
           {save.youth.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              The academy is empty — new intakes arrive through the season.
+              {t("tr.emptyAcademy")}
             </p>
           )}
           {save.youth.map((y) => (
@@ -155,9 +158,9 @@ export function TrainingTab({ save }: { save: SaveData }) {
                 </div>
                 <div className="mt-0.5 flex items-center gap-2 text-[11px] text-muted-foreground">
                   <PosBadge pos={y.pos} />
-                  <span>{y.age} yrs</span>
+                  <span>{t("sq.yrs", { age: num(lang, y.age) })}</span>
                   <span>
-                    Pot <Ovr value={y.pot} className="text-xs" />
+                    {t("tr.pot")} <Ovr value={y.pot} className="text-xs" />
                   </span>
                 </div>
               </div>
@@ -170,7 +173,7 @@ export function TrainingTab({ save }: { save: SaveData }) {
                   onClick={() => promote(y.id)}
                 >
                   <Rocket className="size-3.5" />
-                  Promote
+                  {t("tr.promote")}
                 </Button>
                 <Button
                   variant="ghost"

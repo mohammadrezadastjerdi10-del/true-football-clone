@@ -6,19 +6,21 @@ import { autoPick, computeOverall, playerName, sortSquad } from "@/lib/game/sim"
 import type { SaveData } from "@/lib/game/types";
 import { Ovr, PosBadge, SectionTitle } from "@/components/game/shared";
 import { cn } from "@/lib/utils";
+import { num, useLang } from "@/lib/i18n";
 import { Loader2, Save, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-const SLIDERS: { key: "mentality" | "pressing" | "passing" | "tempo"; label: string; lo: string; hi: string }[] = [
-  { key: "mentality", label: "Mentality", lo: "Defensive", hi: "Attacking" },
-  { key: "pressing", label: "Pressing", lo: "Sit off", hi: "High press" },
-  { key: "passing", label: "Passing", lo: "Short", hi: "Direct" },
-  { key: "tempo", label: "Tempo", lo: "Patient", hi: "Fast" },
+const SLIDERS: { key: "mentality" | "pressing" | "passing" | "tempo"; labelKey: string; loKey: string; hiKey: string }[] = [
+  { key: "mentality", labelKey: "tc.mentality", loKey: "tc.mentality.lo", hiKey: "tc.mentality.hi" },
+  { key: "pressing", labelKey: "tc.pressing", loKey: "tc.pressing.lo", hiKey: "tc.pressing.hi" },
+  { key: "passing", labelKey: "tc.passing", loKey: "tc.passing.lo", hiKey: "tc.passing.hi" },
+  { key: "tempo", labelKey: "tc.tempo", loKey: "tc.tempo.lo", hiKey: "tc.tempo.hi" },
 ];
 
 export function TacticsTab({ save }: { save: SaveData }) {
   const { setTactics, isLoading } = useSave();
+  const { t, lang } = useLang();
   const [formation, setFormation] = useState(save.tactics.formation);
   const [mentality, setMentality] = useState(save.tactics.mentality);
   const [pressing, setPressing] = useState(save.tactics.pressing);
@@ -51,9 +53,9 @@ export function TacticsTab({ save }: { save: SaveData }) {
     try {
       await setTactics({ formation, mentality, pressing, passing, tempo, lineup });
       setDirty(false);
-      toast.success("Tactics saved — the squad is ready.");
+      toast.success(t("tc.saved"));
     } catch {
-      toast.error("Could not save tactics.");
+      toast.error(t("tc.saveError"));
     }
   };
 
@@ -61,8 +63,8 @@ export function TacticsTab({ save }: { save: SaveData }) {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <SectionTitle
-          title="Tactics board"
-          sub="Shape how the team plays every matchday"
+          title={t("tc.title")}
+          sub={t("tc.sub")}
         />
         <div className="flex gap-2">
           <Button
@@ -74,11 +76,11 @@ export function TacticsTab({ save }: { save: SaveData }) {
             }}
           >
             <Sparkles className="size-4" />
-            Auto-pick best XI
+            {t("tc.autoPick")}
           </Button>
           <Button className="gap-2 rounded-xl" onClick={saveTactics} disabled={!dirty || isLoading}>
             {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
-            Save tactics
+            {t("tc.save")}
           </Button>
         </div>
       </div>
@@ -86,7 +88,7 @@ export function TacticsTab({ save }: { save: SaveData }) {
       {/* Formation */}
       <div className="rounded-2xl border border-white/8 bg-card p-5">
         <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Formation
+          {t("tc.formation")}
         </p>
         <div className="flex flex-wrap gap-2">
           {Object.keys(FORMATIONS).map((key) => (
@@ -115,8 +117,8 @@ export function TacticsTab({ save }: { save: SaveData }) {
           return (
             <div key={s.key} className="rounded-2xl border border-white/8 bg-card p-5">
               <div className="mb-4 flex items-center justify-between">
-                <p className="text-sm font-semibold tracking-tight">{s.label}</p>
-                <span className="font-mono text-sm font-bold tabular-nums text-emerald-400">{value}</span>
+                <p className="text-sm font-semibold tracking-tight">{t(s.labelKey)}</p>
+                <span className="font-mono text-sm font-bold tabular-nums text-emerald-400">{num(lang, value)}</span>
               </div>
               <Slider
                 value={[value]}
@@ -129,8 +131,8 @@ export function TacticsTab({ save }: { save: SaveData }) {
                 }}
               />
               <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
-                <span>{s.lo}</span>
-                <span>{s.hi}</span>
+                <span>{t(s.loKey)}</span>
+                <span>{t(s.hiKey)}</span>
               </div>
             </div>
           );
@@ -140,15 +142,15 @@ export function TacticsTab({ save }: { save: SaveData }) {
       {/* Lineup */}
       <div className="rounded-2xl border border-white/8 bg-card p-5">
         <p className="mb-4 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-          Starting eleven · {FORMATION_SLOT_LABELS[formation] ?? FORMATIONS[formation].name}
+          {t("tc.xi", { name: FORMATIONS[formation].name })}
         </p>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {slots.map((slot) => {
-            const pid = lineup[slot.slot] ?? null;
+            const pid = lineup[slot.key] ?? null;
             const player = pid ? save.squad.find((p) => p.id === pid) : undefined;
             return (
               <div
-                key={slot.slot}
+                key={slot.key}
                 className={cn(
                   "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
                   player ? "border-white/10 bg-white/[0.03]" : "border-dashed border-white/15",
@@ -160,10 +162,10 @@ export function TacticsTab({ save }: { save: SaveData }) {
                 <PosBadge pos={slot.role} />
                 <select
                   value={pid ?? ""}
-                  onChange={(e) => setSlot(slot.slot, e.target.value)}
+                  onChange={(e) => setSlot(slot.key, e.target.value)}
                   className="min-w-0 flex-1 cursor-pointer rounded-md border border-transparent bg-transparent px-1 py-1 text-sm font-medium text-foreground outline-none hover:border-white/15 focus:border-emerald-500/40"
                 >
-                  <option value="">— empty —</option>
+                  <option value="">{t("tc.empty")}</option>
                   {sorted
                     .filter((p) => !(pid && p.id !== pid && Object.values(lineup).includes(p.id)))
                     .map((p) => (

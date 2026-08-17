@@ -125,4 +125,18 @@
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+  /* Persian UI: a clear, readable Persian stack. Latin text inside the
+     RTL tree falls back to the app font automatically. */
+  [dir="rtl"] body,
+  [dir="rtl"] button,
+  [dir="rtl"] input,
+  [dir="rtl"] select,
+  [dir="rtl"] textarea {
+    font-family:
+      Vazirmatn, Vazir, "IRANSans", Tahoma, "Segoe UI", system-ui, sans-serif;
+  }
+  [dir="rtl"] .tabular-nums,
+  [dir="rtl"] [class*="tabular"] {
+    letter-spacing: 0;
+  }
 }

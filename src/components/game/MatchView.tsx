@@ -17,6 +17,7 @@ import { hashSeed } from "@/lib/game/rng";
 import type { NextEvent, SaveData, ScorerRec } from "@/lib/game/types";
 import { Crest, PosBadge } from "@/components/game/shared";
 import { cn } from "@/lib/utils";
+import { num, useLang } from "@/lib/i18n";
 import { ArrowLeft, CheckCircle2, Loader2, Play, SkipForward } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -37,6 +38,7 @@ export function MatchView({
   onClose: () => void;
 }) {
   const { finishMatch, isLoading } = useSave();
+  const { t, lang } = useLang();
   const isHome = ev.fixture ? ev.fixture.home === save.clubId : true;
   const userTeam: 0 | 1 = isHome ? 0 : 1;
   const club = clubById(save.clubId);
@@ -50,7 +52,7 @@ export function MatchView({
   const [match, setMatch] = useState<LiveMatch>(() => {
     const mySide = buildEngineSideFromSquad(save, save.squad, isHome, seed);
     const oppSide = buildOpponentSide(save, oppClub.id, seed);
-    return createMatch(isHome ? mySide : oppSide, isHome ? oppSide : mySide, seed);
+    return createMatch(isHome ? mySide : oppSide, isHome ? oppSide : mySide, seed, save.lang ?? "en");
   });
   const [subs, setSubs] = useState<SubRec[]>([]);
   const [subTarget, setSubTarget] = useState<string | null>(null);
@@ -119,15 +121,15 @@ export function MatchView({
       });
       toast.success(
         myGoals > oppGoals
-          ? "Three points! The fans are singing your name."
+          ? t("mv.winToast")
           : myGoals === oppGoals
-            ? "A point apiece — the board will take it."
-            : "Tough afternoon. Pick the team up and go again.",
+            ? t("mv.drawToast")
+            : t("mv.loseToast"),
       );
       onClose();
     } catch (e) {
       console.error(e);
-      toast.error("The result could not be recorded — the match state may have changed.");
+      toast.error(t("mv.resultError"));
       onClose();
     } finally {
       setSaving(false);
@@ -141,11 +143,11 @@ export function MatchView({
       {/* Header */}
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" className="gap-2 text-muted-foreground" onClick={onClose}>
-          <ArrowLeft className="size-4" />
-          Back to club
+          <ArrowLeft className="size-4 rtl:rotate-180" />
+          {t("mv.back")}
         </Button>
         <div className="rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 font-mono text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          {ev.type === "cup" ? `Cup · ${ev.cupRoundName}` : `League · Round ${ev.round}`} · {isHome ? "Home" : "Away"}
+          {ev.type === "cup" ? t("mv.cup", { round: t(`cup.r${ev.round}`) }) : t("mv.league", { round: num(lang, ev.round) })} · {isHome ? t("mv.home") : t("mv.away")}
         </div>
       </div>
 
@@ -153,18 +155,18 @@ export function MatchView({
       <div className="overflow-hidden rounded-2xl border border-white/8 bg-card">
         <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
           <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-            {match.ended ? "Full time" : atHt ? "Half time" : `Live · ${match.minute}'`}
+            {match.ended ? t("mv.fulltime") : atHt ? t("mv.halftime") : t("mv.live", { min: num(lang, match.minute) })}
           </div>
           <div className="flex gap-1.5">
-            {[0, 1].map((t) => (
+            {[0, 1].map((teamIdx) => (
               <span
-                key={t}
+                key={teamIdx}
                 className={cn(
                   "rounded-md px-2 py-0.5 font-mono text-[10px] font-bold uppercase tabular-nums",
-                  t === userTeam ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-muted-foreground",
+                  teamIdx === userTeam ? "bg-emerald-500/15 text-emerald-300" : "bg-white/5 text-muted-foreground",
                 )}
               >
-                {t === userTeam ? "You" : "Opp"}
+                {teamIdx === userTeam ? t("mv.you") : t("mv.opp")}
               </span>
             ))}
           </div>
@@ -174,12 +176,12 @@ export function MatchView({
           <TeamScore club={clubById(mySide.id)} goals={myGoals} highlight />
           <div className="text-center">
             <div className="font-mono text-5xl font-bold tabular-nums tracking-tight">
-              {myGoals}
+              {num(lang, myGoals)}
               <span className="mx-2 text-muted-foreground/50">–</span>
-              {oppGoals}
+              {num(lang, oppGoals)}
             </div>
             <div className="mt-2 text-[10px] uppercase tracking-[0.16em] text-muted-foreground">
-              {match.ended ? "Final whistle" : match.minute <= 45 ? `Minute ${match.minute}` : "Second half"}
+              {match.ended ? t("mv.finalWhistle") : match.minute <= 45 ? t("mv.minute", { min: num(lang, match.minute) }) : t("mv.secondHalf")}
             </div>
           </div>
           <TeamScore club={clubById(oppSide.id)} goals={oppGoals} />
@@ -188,9 +190,9 @@ export function MatchView({
         {/* Stats */}
         <div className="border-t border-white/5 px-6 py-5">
           <div className="mb-2 flex justify-between text-[11px] font-medium text-muted-foreground">
-            <span className="text-emerald-400">{statsPct(match, userTeam)}%</span>
-            <span>Possession</span>
-            <span>{statsPct(match, (1 - userTeam) as 0 | 1)}%</span>
+            <span className="text-emerald-400">{num(lang, statsPct(match, userTeam))}%</span>
+            <span>{t("mv.possession")}</span>
+            <span>{num(lang, statsPct(match, (1 - userTeam) as 0 | 1))}%</span>
           </div>
           <div className="flex h-1.5 gap-1 overflow-hidden rounded-full">
             <div className="rounded-full bg-emerald-500" style={{ width: `${statsPct(match, userTeam)}%` }} />
@@ -198,15 +200,15 @@ export function MatchView({
           </div>
           <div className="mt-4 grid grid-cols-3 gap-3 text-center sm:grid-cols-5">
             {[
-              ["Shots", match.teams[userTeam].shots, match.teams[1 - userTeam].shots],
-              ["On target", match.teams[userTeam].onTarget, match.teams[1 - userTeam].onTarget],
-              ["Corners", match.teams[userTeam].corners, match.teams[1 - userTeam].corners],
-              ["Fouls", match.teams[userTeam].fouls, match.teams[1 - userTeam].fouls],
-              ["xG", match.teams[userTeam].xg, match.teams[1 - userTeam].xg],
+              [t("mv.shots"), match.teams[userTeam].shots, match.teams[1 - userTeam].shots],
+              [t("mv.onTarget"), match.teams[userTeam].onTarget, match.teams[1 - userTeam].onTarget],
+              [t("mv.corners"), match.teams[userTeam].corners, match.teams[1 - userTeam].corners],
+              [t("mv.fouls"), match.teams[userTeam].fouls, match.teams[1 - userTeam].fouls],
+              [t("mv.xg"), match.teams[userTeam].xg, match.teams[1 - userTeam].xg],
             ].map(([label, a, b]) => (
               <div key={label as string} className="rounded-lg bg-white/[0.04] px-2 py-2.5">
                 <div className="font-mono text-sm font-semibold tabular-nums">
-                  {Number(a)} <span className="text-muted-foreground/60">–</span> {Number(b)}
+                  {num(lang, Number(a))} <span className="text-muted-foreground/60">–</span> {num(lang, Number(b))}
                 </div>
                 <div className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
                   {label as string}
@@ -222,21 +224,21 @@ export function MatchView({
         <div className="rounded-2xl border border-white/8 bg-card p-5">
           {atHt ? (
             <div>
-              <p className="text-sm font-semibold">Half-time team talk</p>
+              <p className="text-sm font-semibold">{t("mv.teamTalk")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                You trail {oppGoals}–{myGoals}. The dressing room is quiet. What do you say?
+                {t("mv.teamTalkSub", { opp: num(lang, oppGoals), you: num(lang, myGoals) })}
               </p>
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 {(
                   [
-                    [0, "Stay calm", "Keep the shape, trust the plan"],
-                    [1, "Positive", "We're in this — keep going"],
-                    [2, "Fired up", "SEND THEM OUT ANGRY"],
+                    [0, "mv.stayCalm", "mv.stayCalmSub"],
+                    [1, "mv.positive", "mv.positiveSub"],
+                    [2, "mv.firedUp", "mv.firedUpSub"],
                   ] as const
-                ).map(([t, label, sub]) => (
-                  <Button key={t} variant="outline" className="h-auto flex-col gap-0.5 rounded-xl border-white/10 py-3" onClick={() => talk(t)}>
-                    <span className="text-sm font-semibold">{label}</span>
-                    <span className="text-[11px] font-normal text-muted-foreground">{sub}</span>
+                ).map(([talkId, labelKey, subKey]) => (
+                  <Button key={talkId} variant="outline" className="h-auto flex-col gap-0.5 rounded-xl border-white/10 py-3" onClick={() => talk(talkId)}>
+                    <span className="text-sm font-semibold">{t(labelKey)}</span>
+                    <span className="text-[11px] font-normal text-muted-foreground">{t(subKey)}</span>
                   </Button>
                 ))}
               </div>
@@ -244,37 +246,37 @@ export function MatchView({
           ) : match.ended ? (
             <div>
               <p className="text-sm font-semibold text-emerald-400">
-                {myGoals > oppGoals ? "Victory!" : myGoals === oppGoals ? "Points shared" : "Defeat"}
+                {myGoals > oppGoals ? t("mv.victory") : myGoals === oppGoals ? t("mv.pointsShared") : t("mv.defeat")}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Confirm the result to record ratings, condition, finances and the league table.
+                {t("mv.confirmText")}
               </p>
               <Button className="mt-4 w-full rounded-xl" size="lg" onClick={confirmResult} disabled={saving}>
                 {saving ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
-                Confirm result
+                {t("mv.confirm")}
               </Button>
             </div>
           ) : (
             <div>
-              <p className="text-sm font-semibold">Matchday control</p>
+              <p className="text-sm font-semibold">{t("mv.control")}</p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Stepping through the game — goals, cards and momentum all happen in real time.
+                {t("mv.controlSub")}
               </p>
               <div className="mt-4 flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(1)}>
-                  <Play className="size-3.5" /> +1 min
+                  <Play className="size-3.5" /> {t("mv.min1")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(5)}>
-                  <SkipForward className="size-3.5" /> +5 min
+                  <SkipForward className="size-3.5" /> {t("mv.min5")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(match.half === 1 ? 45 - match.minute : 90 - match.minute)}>
-                  <SkipForward className="size-3.5" /> To {match.half === 1 ? "half-time" : "full-time"}
+                  <SkipForward className="size-3.5" /> {t(match.half === 1 ? "mv.toHalftime" : "mv.toFulltime")}
                 </Button>
               </div>
               <div className="mt-5">
                 <div className="mb-2 flex items-center justify-between text-xs">
-                  <span className="font-medium text-muted-foreground">Quick mentality</span>
-                  <span className="font-mono tabular-nums text-emerald-400">{mentality}</span>
+                  <span className="font-medium text-muted-foreground">{t("mv.mentality")}</span>
+                  <span className="font-mono tabular-nums text-emerald-400">{num(lang, mentality)}</span>
                 </div>
                 <Slider
                   value={[mentality]}
@@ -288,8 +290,8 @@ export function MatchView({
                   }}
                 />
                 <div className="mt-1.5 flex justify-between text-[10px] text-muted-foreground">
-                  <span>Defensive</span>
-                  <span>Attacking</span>
+                  <span>{t("mv.defensive")}</span>
+                  <span>{t("mv.attacking")}</span>
                 </div>
               </div>
             </div>
@@ -299,12 +301,12 @@ export function MatchView({
         {/* Events feed */}
         <div className="rounded-2xl border border-white/8 bg-card p-5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Commentary
+            {t("mv.commentary")}
           </p>
           <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
             {match.events.length === 0 && (
               <li className="py-8 text-center text-sm text-muted-foreground">
-                The referee blows the whistle…
+                {t("mv.emptyCommentary")}
               </li>
             )}
             {[...match.events].reverse().map((e, i) => (
@@ -319,7 +321,7 @@ export function MatchView({
                         : "text-muted-foreground",
                   )}
                 >
-                  {e.minute}'
+                  {num(lang, e.minute)}'
                 </span>
                 <span
                   className={cn(
@@ -340,7 +342,7 @@ export function MatchView({
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/8 bg-card p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-400">
-            Your XI
+            {t("mv.yourXI")}
           </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {mySide.xi.map((s) => (
@@ -368,16 +370,14 @@ export function MatchView({
           </div>
           {!match.ended && (
             <p className="mt-3 text-[11px] text-muted-foreground">
-              {subTarget
-                ? "Now pick a substitute below to make the change."
-                : "Tap a starter to take them off, then choose a substitute."}
+              {subTarget ? t("mv.pickSub") : t("mv.tapStarter")}
             </p>
           )}
         </div>
 
         <div className="rounded-2xl border border-white/8 bg-card p-5">
           <p className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Bench {mySide.bench.length > 0 && subs.length >= 3 ? "· all subs used" : `· ${3 - subs.length} left`}
+            {t("mv.bench")}{subs.length >= 3 ? ` · ${t("mv.allSubsUsed")}` : ` · ${t("mv.subsLeft", { n: num(lang, 3 - subs.length) })}`}
           </p>
           <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
             {mySide.bench.map((s) => (
@@ -391,13 +391,13 @@ export function MatchView({
                 <PosBadge pos={s.p.pos} />
                 <span className="truncate font-medium">{s.p.name}</span>
                 <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Sub
+                  {t("mv.sub")}
                 </span>
               </button>
             ))}
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">
-            {oppSide.name} · {oppSide.xi.length} starters
+            {t("mv.starters", { name: oppSide.name, n: num(lang, oppSide.xi.length) })}
           </p>
         </div>
       </div>

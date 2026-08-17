@@ -9,12 +9,13 @@ import {
   Trophy,
 } from "lucide-react";
 import { useSave } from "@/hooks/use-save";
-import { CUP_ROUND_NAMES, nextEvent, positionOf, standings } from "@/lib/game/sim";
+import { nextEvent, positionOf, standings } from "@/lib/game/sim";
 import { clubById, leagueById } from "@/lib/game/world";
 import type { NextEvent, SaveData } from "@/lib/game/types";
 import { fmtMoney, ordinal } from "@/lib/game/format";
 import { Bar, Crest, ResultChips, SectionTitle, Stat } from "@/components/game/shared";
 import { cn } from "@/lib/utils";
+import { num, useLang } from "@/lib/i18n";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
@@ -38,6 +39,7 @@ export function OverviewTab({
   onPlayMatch: (ev: NextEvent) => void;
 }) {
   const { advanceWeek, startNextSeason, isLoading } = useSave();
+  const { t, lang } = useLang();
   const club = clubById(save.clubId);
   const league = leagueById(save.clubId);
   const ev = nextEvent(save);
@@ -51,18 +53,18 @@ export function OverviewTab({
   const advance = async () => {
     try {
       const res = await advanceWeek();
-      if (!res.advanced) toast.info("A match is scheduled — play it first.");
+      if (!res.advanced) toast.info(t("ov.playFirst"));
     } catch {
-      toast.error("Could not advance the week.");
+      toast.error(t("ov.advanceError"));
     }
   };
 
   const nextSeason = async () => {
     try {
       await startNextSeason();
-      toast.success(`Season ${save.label} is underway!`);
+      toast.success(t("ov.seasonStarted", { label: save.label }));
     } catch {
-      toast.error("Could not start the new season.");
+      toast.error(t("ov.seasonError"));
     }
   };
 
@@ -84,7 +86,7 @@ export function OverviewTab({
                 {club.name}
               </h1>
               <p className="mt-1 text-sm text-muted-foreground">
-                {league.name} · Season {save.label} · Week {save.week}
+                {t("ov.leagueLine", { league: league.name, label: save.label, week: num(lang, save.week) })}
               </p>
             </div>
           </div>
@@ -92,11 +94,11 @@ export function OverviewTab({
             <ResultChips raw={save.flags.lastResults} />
             <div className="rounded-xl border border-white/10 bg-background/60 px-4 py-2 text-right">
               <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
-                Position
+                {t("ov.position")}
               </div>
               <div className="font-mono text-xl font-bold tabular-nums text-emerald-400">
-                {ordinal(pos)}
-                <span className="text-xs font-medium text-muted-foreground"> / 12</span>
+                {lang === "fa" ? num(lang, pos) : ordinal(pos)}
+                <span className="text-xs font-medium text-muted-foreground"> / {num(lang, 12)}</span>
               </div>
             </div>
           </div>
@@ -109,12 +111,12 @@ export function OverviewTab({
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               {ev.type === "cup"
-                ? `National Cup · ${ev.cupRoundName ?? ""}`
+                ? t("ov.cup", { round: ev.cupRoundName ?? "" })
                 : ev.type === "league"
-                  ? `League · Round ${ev.round}`
+                  ? t("ov.league", { round: num(lang, ev.round) })
                   : ev.type === "season_end"
-                    ? "Season complete"
-                    : "Training week"}
+                    ? t("ov.seasonComplete")
+                    : t("ov.trainingWeek")}
             </p>
             {ev.type === "cup" && <Trophy className="size-4 text-amber-300" />}
           </div>
@@ -128,9 +130,9 @@ export function OverviewTab({
                 </span>
               </div>
               <div className="text-center">
-                <div className="font-mono text-2xl font-bold tabular-nums text-foreground">vs</div>
+                <div className="font-mono text-2xl font-bold tabular-nums text-foreground">{t("ov.vs")}</div>
                 <div className="mt-1 text-[10px] uppercase tracking-[0.14em] text-muted-foreground">
-                  {home ? "Home" : "Away"}
+                  {home ? t("ov.home") : t("ov.away")}
                 </div>
               </div>
               <div className="flex flex-1 flex-col items-center gap-2 text-center">
@@ -142,9 +144,7 @@ export function OverviewTab({
             </div>
           ) : (
             <p className="mt-5 text-sm leading-relaxed text-muted-foreground">
-              {ev.type === "season_end"
-                ? "The season is over. Review the campaign and start the next one."
-                : "No match this week — a chance to rest players and let the youth develop."}
+              {ev.type === "season_end" ? t("ov.seasonOver") : t("ov.noMatch")}
             </p>
           )}
 
@@ -152,17 +152,17 @@ export function OverviewTab({
             {ev.type === "league" || ev.type === "cup" ? (
               <Button className="w-full rounded-xl" size="lg" onClick={() => onPlayMatch(ev)}>
                 <Play className="size-4" />
-                Play matchday {ev.type === "cup" ? `(${CUP_ROUND_NAMES[ev.round - 1] ?? "Cup"})` : ev.round}
+                {ev.type === "cup" ? t("ov.playCup", { round: t(`cup.r${ev.round}`) }) : t("ov.playMatchday", { round: num(lang, ev.round) })}
               </Button>
             ) : ev.type === "season_end" ? (
               <Button className="w-full rounded-xl" size="lg" onClick={nextSeason} disabled={isLoading}>
                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Trophy className="size-4" />}
-                Start next season
+                {t("ov.startNextSeason")}
               </Button>
             ) : (
               <Button className="w-full rounded-xl" size="lg" onClick={advance} disabled={isLoading}>
                 {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Clock3 className="size-4" />}
-                Advance week
+                {t("ov.advanceWeek")}
               </Button>
             )}
           </div>
@@ -171,7 +171,7 @@ export function OverviewTab({
         {/* Quick stats */}
         <div className="grid grid-cols-2 gap-3">
           <Stat
-            label="Balance"
+            label={t("ov.balance")}
             value={
               <span className={cn(save.balance < 0 && "text-red-400")}>
                 {fmtMoney(save.balance)}
@@ -179,7 +179,7 @@ export function OverviewTab({
             }
           />
           <Stat
-            label="Week in / out"
+            label={t("ov.weekInOut")}
             value={
               <span className="font-mono text-sm tabular-nums">
                 <span className="text-emerald-400">+{fmtMoney(save.weeklyIncome)}</span>
@@ -189,7 +189,7 @@ export function OverviewTab({
             }
           />
           <Stat
-            label="Board confidence"
+            label={t("ov.board")}
             value={
               <div className="space-y-1.5">
                 <span className="font-mono tabular-nums">{save.board}%</span>
@@ -198,7 +198,7 @@ export function OverviewTab({
             }
           />
           <Stat
-            label="Club"
+            label={t("ov.club")}
             value={
               <div className="space-y-0.5 text-sm font-medium">
                 <div className="flex items-center gap-1.5">
@@ -207,7 +207,7 @@ export function OverviewTab({
                 </div>
                 <div className="flex items-center gap-1.5 text-muted-foreground">
                   <CircleDollarSign className="size-3.5" />
-                  Sponsor Lv {save.sponsor.level} · {fmtMoney(save.sponsor.weekly)}/wk
+                  {t("ov.sponsorLine", { lvl: num(lang, save.sponsor.level), amount: fmtMoney(save.sponsor.weekly) })}
                 </div>
               </div>
             }
@@ -226,13 +226,13 @@ export function OverviewTab({
               <thead>
                 <tr className="text-left text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   <th className="px-4 py-2.5">#</th>
-                  <th className="px-2 py-2.5">Club</th>
-                  <th className="px-2 py-2.5 text-center">P</th>
-                  <th className="px-2 py-2.5 text-center">W</th>
-                  <th className="px-2 py-2.5 text-center">D</th>
-                  <th className="px-2 py-2.5 text-center">L</th>
-                  <th className="px-2 py-2.5 text-center">GD</th>
-                  <th className="px-4 py-2.5 text-right">Pts</th>
+                  <th className="px-2 py-2.5">{t("ov.table.club")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ov.table.p")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ov.table.w")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ov.table.d")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ov.table.l")}</th>
+                  <th className="px-2 py-2.5 text-center">{t("ov.table.gd")}</th>
+                  <th className="px-4 py-2.5 text-right">{t("ov.table.pts")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -248,7 +248,7 @@ export function OverviewTab({
                       )}
                     >
                       <td className="px-4 py-2.5 font-mono tabular-nums">
-                        {i === 0 ? "🥇" : i + 1}
+                        {i === 0 ? "🥇" : num(lang, i + 1)}
                       </td>
                       <td className="px-2 py-2.5">
                         <span className="flex items-center gap-2">
@@ -276,10 +276,10 @@ export function OverviewTab({
             </table>
           </div>
           <div className="flex items-center justify-between border-t border-white/5 px-5 py-3 text-xs text-muted-foreground">
-            <span>P{myRow.p} · W{myRow.w} · D{myRow.d} · L{myRow.l} · {myRow.gf}–{myRow.ga}</span>
+            <span>{t("ov.table.p")}{num(lang, myRow.p)} · {t("ov.table.w")}{num(lang, myRow.w)} · {t("ov.table.d")}{num(lang, myRow.d)} · {t("ov.table.l")}{num(lang, myRow.l)} · {num(lang, myRow.gf)}–{num(lang, myRow.ga)}</span>
             <span className="flex items-center gap-1">
-              Next up: Round {ev.round || "—"}
-              <ChevronRight className="size-3.5" />
+              {t("ov.nextUp", { round: ev.round ? num(lang, ev.round) : "—" })}
+              <ChevronRight className="size-3.5 rtl:rotate-180" />
             </span>
           </div>
         </div>
@@ -288,12 +288,12 @@ export function OverviewTab({
         <div className="rounded-2xl border border-white/8 bg-card">
           <div className="flex items-center gap-2 border-b border-white/5 px-5 py-4">
             <Newspaper className="size-4 text-emerald-400" />
-            <SectionTitle title="Club news" />
+            <SectionTitle title={t("ov.clubNews")} />
           </div>
           <ul className="max-h-[420px] divide-y divide-white/5 overflow-y-auto px-5 py-2">
             {save.news.length === 0 && (
               <li className="py-6 text-center text-sm text-muted-foreground">
-                Nothing to report yet. Kick off your first week.
+                {t("ov.noNews")}
               </li>
             )}
             {save.news.map((n, i) => (
@@ -301,7 +301,7 @@ export function OverviewTab({
                 <span className="mt-0.5 text-sm">{NEWS_ICON[n.kind] ?? "•"}</span>
                 <div>
                   <p className="text-sm leading-relaxed text-foreground/90">{n.text}</p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">Week {n.week}</p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">{t("ov.weekShort", { week: num(lang, n.week) })}</p>
                 </div>
               </li>
             ))}

@@ -67,6 +67,18 @@ async function loadSave(ctx: MutationCtx) {
   return { user, doc };
 }
 
+export const setLang = mutation({
+  args: { lang: v.union(v.literal("en"), v.literal("fa")) },
+  handler: async (ctx, args) => {
+    const { doc } = await loadSave(ctx);
+    if (!doc) throw new Error("No career found");
+    const save = doc.data as SaveData;
+    save.lang = args.lang;
+    await ctx.db.patch(doc._id, { data: save, updatedAt: Date.now() });
+    return { ok: true };
+  },
+});
+
 export const mySave = query({
   args: {},
   handler: async (ctx) => {
@@ -82,7 +94,12 @@ export const mySave = query({
 });
 
 export const createCareer = mutation({
-  args: { managerName: v.string(), managerNat: v.string(), clubId: v.string() },
+  args: {
+    managerName: v.string(),
+    managerNat: v.string(),
+    clubId: v.string(),
+    lang: v.optional(v.union(v.literal("en"), v.literal("fa"))),
+  },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
     if (!user) throw new Error("Not authenticated");
@@ -92,7 +109,7 @@ export const createCareer = mutation({
       .collect();
     for (const doc of existing) await ctx.db.delete(doc._id);
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const save = createCareerData({ seed, managerName: args.managerName.trim() || "Manager", managerNat: args.managerNat, clubId: args.clubId });
+    const save = createCareerData({ seed, managerName: args.managerName.trim() || "Manager", managerNat: args.managerNat, clubId: args.clubId, lang: args.lang ?? "en" });
     const id = await ctx.db.insert("saves", {
       userId: user._id,
       data: save,

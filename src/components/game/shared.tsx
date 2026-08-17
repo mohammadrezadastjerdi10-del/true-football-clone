@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import type { Player } from "@/lib/game/types";
 import { avgForm, computeOverall, playerName } from "@/lib/game/sim";
 import { formLetters, formTone, fmtMoney } from "@/lib/game/format";
+import { num, useLang } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 
 export function Crest({
@@ -131,6 +132,7 @@ export function Bar({
 }
 
 export function SquadRowMeta({ p }: { p: Player }) {
+  const { t, lang } = useLang();
   return (
     <div className="flex items-center gap-2.5">
       <Flag nat={p.nat} />
@@ -140,9 +142,9 @@ export function SquadRowMeta({ p }: { p: Player }) {
           {p.star && <span className="ml-1 text-amber-300">★</span>}
         </div>
         <div className="text-[11px] text-muted-foreground">
-          {p.age} yrs · {fmtMoney(p.val)}
-          {p.injury && <span className="ml-1.5 text-red-400">inj {p.injury.weeks}w</span>}
-          {p.susp > 0 && <span className="ml-1.5 text-amber-300">susp</span>}
+          {t("sq.yrs", { age: num(lang, p.age) })} · {fmtMoney(p.val)}
+          {p.injury && <span className="ml-1.5 text-red-400">{t("sq.inj", { weeks: num(lang, p.injury.weeks) })}</span>}
+          {p.susp > 0 && <span className="ml-1.5 text-amber-300">{t("sq.susp")}</span>}
         </div>
       </div>
     </div>

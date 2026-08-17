@@ -13,6 +13,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { clubById, leagueById } from "@/lib/game/world";
 import type { NextEvent } from "@/lib/game/types";
 import { fmtMoney } from "@/lib/game/format";
+import { LangToggle, num, useLang } from "@/lib/i18n";
 import {
   ArrowLeftRight,
   Dumbbell,
@@ -28,17 +29,18 @@ import { cn } from "@/lib/utils";
 
 type TabId = "overview" | "squad" | "tactics" | "training" | "transfers";
 
-const TABS: { id: TabId; label: string; icon: typeof Home }[] = [
-  { id: "overview", label: "Overview", icon: Home },
-  { id: "squad", label: "Squad", icon: Users },
-  { id: "tactics", label: "Tactics", icon: SlidersHorizontal },
-  { id: "training", label: "Training", icon: Dumbbell },
-  { id: "transfers", label: "Transfers", icon: ArrowLeftRight },
+const TABS: { id: TabId; labelKey: string; icon: typeof Home }[] = [
+  { id: "overview", labelKey: "nav.overview", icon: Home },
+  { id: "squad", labelKey: "nav.squad", icon: Users },
+  { id: "tactics", labelKey: "nav.tactics", icon: SlidersHorizontal },
+  { id: "training", labelKey: "nav.training", icon: Dumbbell },
+  { id: "transfers", labelKey: "nav.transfers", icon: ArrowLeftRight },
 ];
 
 export default function Dashboard() {
   const { save, isLoading } = useSave();
   const { signOut } = useAuth();
+  const { t, lang } = useLang();
   const navigate = useNavigate();
   const [tab, setTab] = useState<TabId>("overview");
   const [matchEv, setMatchEv] = useState<NextEvent | null>(null);
@@ -65,13 +67,12 @@ export default function Dashboard() {
           <div className="mx-auto mb-5 flex size-14 items-center justify-center rounded-2xl bg-red-500/10 text-red-400">
             <LogOut className="size-6" />
           </div>
-          <h1 className="text-2xl font-bold tracking-tight">The board has lost patience</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("sacked.title")}</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Your time at {clubById(data.clubId).name} is over. Every manager gets
-            another chance — take a new job and write a better story.
+            {t("sacked.body", { club: clubById(data.clubId).name })}
           </p>
           <Button className="mt-6 w-full rounded-xl" size="lg" onClick={() => setRestart(true)}>
-            Start a new career
+            {t("sacked.newCareer")}
           </Button>
         </div>
       </main>
@@ -99,7 +100,7 @@ export default function Dashboard() {
               <div className="leading-tight">
                 <p className="text-sm font-semibold tracking-tight">{club.short}</p>
                 <p className="text-[10px] text-muted-foreground">
-                  {league.name} · {data.label}
+                  {t("hdr.leagueLine", { league: league.name, label: data.label })}
                 </p>
               </div>
             </div>
@@ -108,19 +109,20 @@ export default function Dashboard() {
           <div className="flex items-center gap-3">
             <div className="hidden items-center gap-2 rounded-lg border border-white/8 bg-white/[0.03] px-3 py-1.5 md:flex">
               <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-                Week
+                {t("hdr.week")}
               </span>
-              <span className="font-mono text-sm font-bold tabular-nums">{data.week}</span>
+              <span className="font-mono text-sm font-bold tabular-nums">{num(lang, data.week)}</span>
             </div>
             <div className="hidden items-center gap-2 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-3 py-1.5 sm:flex">
               <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-emerald-400/80">
-                Budget
+                {t("hdr.budget")}
               </span>
               <span className={cn("font-mono text-sm font-bold tabular-nums", data.balance < 0 ? "text-red-400" : "text-emerald-300")}>
                 {fmtMoney(data.balance)}
               </span>
             </div>
-            <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={handleSignOut} aria-label="Sign out">
+            <LangToggle />
+            <Button variant="ghost" size="icon" className="text-muted-foreground" onClick={handleSignOut} aria-label={t("hdr.signout")}>
               <LogOut className="size-4" />
             </Button>
           </div>
@@ -130,20 +132,20 @@ export default function Dashboard() {
       {/* Tab bar */}
       <nav className="sticky top-16 z-20 border-b border-white/5 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-4 sm:px-6">
-          {TABS.map((t) => (
+          {TABS.map((tb) => (
             <button
-              key={t.id}
+              key={tb.id}
               type="button"
-              onClick={() => setTab(t.id)}
+              onClick={() => setTab(tb.id)}
               className={cn(
                 "flex shrink-0 items-center gap-2 border-b-2 px-3.5 py-3 text-sm font-medium transition-colors",
-                tab === t.id
+                tab === tb.id
                   ? "border-emerald-500 text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
-              <t.icon className="size-4" />
-              {t.label}
+              <tb.icon className="size-4" />
+              {t(tb.labelKey)}
             </button>
           ))}
         </div>

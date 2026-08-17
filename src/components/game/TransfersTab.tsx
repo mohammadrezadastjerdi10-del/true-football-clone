@@ -13,6 +13,7 @@ import type { MarketPlayer, SaveData } from "@/lib/game/types";
 import { Flag, Ovr, PosBadge, SectionTitle } from "@/components/game/shared";
 import { fmtMoney } from "@/lib/game/format";
 import { cn } from "@/lib/utils";
+import { faDigits, num, useLang } from "@/lib/i18n";
 import { BadgePlus, Check, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -21,6 +22,7 @@ const POS_FILTERS = ["All", "GK", "DF", "MF", "FW"] as const;
 
 export function TransfersTab({ save }: { save: SaveData }) {
   const { buyPlayer, transferListPlayer, unlistPlayer, acceptOffer, rejectOffer, upgradeStadium, upgradeSponsor, isLoading } = useSave();
+  const { t, lang } = useLang();
   const [posFilter, setPosFilter] = useState<(typeof POS_FILTERS)[number]>("All");
   const [listPid, setListPid] = useState<string>("");
   const [listPrice, setListPrice] = useState("500000");
@@ -40,11 +42,15 @@ export function TransfersTab({ save }: { save: SaveData }) {
   const run = async (id: string, fn: () => Promise<unknown>, success?: string) => {
     setBusy(id);
     try {
-      await fn();
+      const res = (await fn()) as { ok?: boolean; error?: string } | undefined;
+      if (res && res.ok === false) {
+        toast.error(res.error ?? t("tf.failed"));
+        return;
+      }
       if (success) toast.success(success);
     } catch (e) {
       console.error(e);
-      toast.error("That didn't work — try again.");
+      toast.error(t("tf.failed"));
     } finally {
       setBusy(null);
     }
@@ -58,8 +64,8 @@ export function TransfersTab({ save }: { save: SaveData }) {
       {/* Market */}
       <div className="rounded-2xl border border-white/8 bg-card p-6">
         <SectionTitle
-          title="Transfer market"
-          sub={`${save.market.length} players available · your budget ${fmtMoney(save.balance)}`}
+          title={t("tf.market")}
+          sub={t("tf.marketSub", { count: num(lang, save.market.length), budget: fmtMoney(save.balance) })}
           right={
             <div className="flex gap-1.5">
               {POS_FILTERS.map((f) => (
@@ -74,7 +80,7 @@ export function TransfersTab({ save }: { save: SaveData }) {
                       : "border-white/8 bg-white/[0.03] text-muted-foreground hover:text-foreground",
                   )}
                 >
-                  {f}
+                  {f === "All" ? t("tf.all") : f}
                 </button>
               ))}
             </div>
@@ -82,11 +88,11 @@ export function TransfersTab({ save }: { save: SaveData }) {
         />
         <div className="mt-5 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
           {market.map((m) => (
-            <MarketCard key={m.id} m={m} balance={save.balance} busy={busy === m.id} onBuy={() => run(m.id, () => buyPlayer({ marketId: m.id }), "Signed! Welcome aboard.")} />
+            <MarketCard key={m.id} m={m} balance={save.balance} busy={busy === m.id} lang={lang} onBuy={() => run(m.id, () => buyPlayer({ marketId: m.id }), t("tf.signed"))} />
           ))}
           {market.length === 0 && (
             <p className="col-span-full py-10 text-center text-sm text-muted-foreground">
-              No players match this filter.
+              {t("tf.noPlayers")}
             </p>
           )}
         </div>
@@ -95,16 +101,16 @@ export function TransfersTab({ save }: { save: SaveData }) {
       {/* Listed players + offers */}
       <div className="grid gap-6 lg:grid-cols-2">
         <div className="rounded-2xl border border-white/8 bg-card p-6">
-          <SectionTitle title="List a player" sub="Set your asking price and clubs will come knocking" />
+          <SectionTitle title={t("tf.listTitle")} sub={t("tf.listSub")} />
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <Select value={listPid} onValueChange={setListPid}>
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Choose a player" />
+                <SelectValue placeholder={t("tf.choosePlayer")} />
               </SelectTrigger>
               <SelectContent>
                 {squadSorted.map((p) => (
                   <SelectItem key={p.id} value={p.id} disabled={save.listed[p.id] != null}>
-                    {playerName(p)} ({computeOverall(p)}) {save.listed[p.id] != null ? "· listed" : ""}
+                    {playerName(p)} ({num(lang, computeOverall(p))}) {save.listed[p.id] != null ? t("tf.listed") : ""}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -116,25 +122,25 @@ export function TransfersTab({ save }: { save: SaveData }) {
               value={listPrice}
               onChange={(e) => setListPrice(e.target.value)}
               className="sm:w-40"
-              aria-label="Asking price"
+              aria-label={t("tf.asking")}
             />
             <Button
               variant="outline"
               className="gap-2 rounded-xl"
               disabled={!listPid || isLoading}
               onClick={() =>
-                run(listPid, () => transferListPlayer({ playerId: listPid, price: Number(listPrice) || 500000 }), "Player listed on the market.")
+                run(listPid, () => transferListPlayer({ playerId: listPid, price: Number(listPrice) || 500000 }), t("tf.listedOk"))
               }
             >
               <BadgePlus className="size-4" />
-              List
+              {t("tf.list")}
             </Button>
           </div>
 
           <div className="mt-5 space-y-2.5">
             {listedPlayers.length === 0 && (
               <p className="py-6 text-center text-sm text-muted-foreground">
-                Nobody is listed right now.
+                {t("tf.nobodyListed")}
               </p>
             )}
             {listedPlayers.map((p) => (
@@ -149,23 +155,23 @@ export function TransfersTab({ save }: { save: SaveData }) {
                   </div>
                   <Button variant="ghost" size="sm" className="text-muted-foreground" disabled={isLoading} onClick={() => run(p.id, () => unlistPlayer({ playerId: p.id }))}>
                     <X className="size-4" />
-                    Unlist
+                    {t("tf.unlist")}
                   </Button>
                 </div>
                 {(save.offers[p.id] ?? []).map((o) => (
                   <div key={o.id} className="mt-3 flex items-center justify-between rounded-lg border border-amber-400/15 bg-amber-400/[0.04] px-3 py-2.5">
                     <div>
                       <p className="text-sm font-medium text-foreground">
-                        {o.from} offer · <span className="font-mono text-emerald-300">{fmtMoney(o.amount)}</span>
+                        {t("tf.offer", { club: o.from, amount: fmtMoney(o.amount) })}
                       </p>
                       <p className="text-[11px] text-muted-foreground">
-                        weekly wage {fmtMoney(o.weeklyWage)}
+                        {t("tf.weeklyWage", { wage: fmtMoney(o.weeklyWage) })}
                       </p>
                     </div>
                     <div className="flex gap-1.5">
-                      <Button size="sm" variant="outline" className="gap-1 rounded-lg border-emerald-500/30 text-emerald-300" disabled={isLoading} onClick={() => run(o.id, () => acceptOffer({ playerId: p.id, offerId: o.id }), "Transfer completed.")}>
+                      <Button size="sm" variant="outline" className="gap-1 rounded-lg border-emerald-500/30 text-emerald-300" disabled={isLoading} onClick={() => run(o.id, () => acceptOffer({ playerId: p.id, offerId: o.id }), t("tf.accepted"))}>
                         <Check className="size-3.5" />
-                        Accept
+                        {t("tf.accept")}
                       </Button>
                       <Button size="sm" variant="ghost" className="rounded-lg text-muted-foreground" disabled={isLoading} onClick={() => run(o.id, () => rejectOffer({ playerId: p.id, offerId: o.id }))}>
                         <X className="size-3.5" />
@@ -180,24 +186,24 @@ export function TransfersTab({ save }: { save: SaveData }) {
 
         {/* Club upgrades */}
         <div className="rounded-2xl border border-white/8 bg-card p-6">
-          <SectionTitle title="Club facilities" sub="Invest the club's money in infrastructure" />
+          <SectionTitle title={t("tf.facilities")} sub={t("tf.facilitiesSub")} />
           <div className="mt-5 space-y-4">
             <div className="rounded-xl border border-white/8 bg-white/[0.03] p-4">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-semibold">{save.stadium.name}</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Lv {save.stadium.level} · {save.stadium.capacity.toLocaleString()} seats · €{save.stadium.ticket}/ticket
+                    {t("tf.stadiumLine", { lvl: num(lang, save.stadium.level), cap: num(lang, save.stadium.capacity), ticket: num(lang, save.stadium.ticket) })}
                   </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   {nextStadium ? (
                     <>
-                      <p className="font-medium text-foreground">Next: {nextStadium.name}</p>
+                      <p className="font-medium text-foreground">{t("tf.next", { name: nextStadium.name })}</p>
                       <p className="mt-0.5">{fmtMoney(nextStadium.cost)}</p>
                     </>
                   ) : (
-                    <p className="font-medium text-emerald-400">Max level</p>
+                    <p className="font-medium text-emerald-400">{t("tf.maxLevel")}</p>
                   )}
                 </div>
               </div>
@@ -206,10 +212,10 @@ export function TransfersTab({ save }: { save: SaveData }) {
                   variant="outline"
                   className="mt-3 w-full rounded-xl"
                   disabled={isLoading || save.balance < nextStadium.cost}
-                  onClick={() => run("stadium", () => upgradeStadium(), "Stadium expanded!")}
+                  onClick={() => run("stadium", () => upgradeStadium(), t("tf.stadiumUpgraded"))}
                 >
                   {busy === "stadium" ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Upgrade stadium
+                  {t("tf.upgradeStadium")}
                 </Button>
               )}
             </div>
@@ -219,17 +225,17 @@ export function TransfersTab({ save }: { save: SaveData }) {
                 <div>
                   <p className="text-sm font-semibold">Sponsorship</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    Lv {save.sponsor.level} · {fmtMoney(save.sponsor.weekly)}/week
+                    {t("tf.sponsorLine", { lvl: num(lang, save.sponsor.level), amount: fmtMoney(save.sponsor.weekly) })}
                   </p>
                 </div>
                 <div className="text-right text-xs text-muted-foreground">
                   {nextSponsor ? (
                     <>
-                      <p className="font-medium text-foreground">Next: {nextSponsor.name}</p>
+                      <p className="font-medium text-foreground">{t("tf.next", { name: nextSponsor.name })}</p>
                       <p className="mt-0.5">{fmtMoney(nextSponsor.cost)}</p>
                     </>
                   ) : (
-                    <p className="font-medium text-emerald-400">Max level</p>
+                    <p className="font-medium text-emerald-400">{t("tf.maxLevel")}</p>
                   )}
                 </div>
               </div>
@@ -238,10 +244,10 @@ export function TransfersTab({ save }: { save: SaveData }) {
                   variant="outline"
                   className="mt-3 w-full rounded-xl"
                   disabled={isLoading || save.balance < nextSponsor.cost}
-                  onClick={() => run("sponsor", () => upgradeSponsor(), "Better sponsor secured!")}
+                  onClick={() => run("sponsor", () => upgradeSponsor(), t("tf.sponsorUpgraded"))}
                 >
                   {busy === "sponsor" ? <Loader2 className="size-4 animate-spin" /> : null}
-                  Upgrade sponsor
+                  {t("tf.upgradeSponsor")}
                 </Button>
               )}
             </div>
@@ -257,12 +263,15 @@ function MarketCard({
   balance,
   busy,
   onBuy,
+  lang,
 }: {
   m: MarketPlayer;
   balance: number;
   busy: boolean;
   onBuy: () => void;
+  lang: "en" | "fa";
 }) {
+  const { t } = useLang();
   const afford = balance >= m.asking;
   return (
     <div className="group rounded-xl border border-white/8 bg-white/[0.02] p-4 transition-colors hover:border-white/20">
@@ -274,7 +283,7 @@ function MarketCard({
               {m.first} {m.last}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              {m.age} yrs · Pot {m.pot} · Form {m.form.toFixed(1)}
+              {t("sq.yrs", { age: num(lang, m.age) })} · {t("sq.pot")} {num(lang, m.pot)} · {t("sq.form")} {lang === "fa" ? faDigits(m.form.toFixed(1)) : m.form.toFixed(1)}
             </p>
           </div>
         </div>
@@ -293,7 +302,7 @@ function MarketCard({
         onClick={onBuy}
       >
         {busy ? <Loader2 className="size-3.5 animate-spin" /> : <BadgePlus className="size-3.5" />}
-        {afford ? "Sign player" : "Too expensive"}
+        {afford ? t("tf.signPlayer") : t("tf.tooExpensive")}
       </Button>
     </div>
   );

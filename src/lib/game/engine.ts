@@ -1,5 +1,7 @@
 // Match engine. Pure TS so it runs identically in the browser (live match
 // playback) and on the Convex backend (AI vs AI results).
+//
+// Uses 37-attribute system with position-dependent weighting.
 
 import { Rng } from "./rng";
 import type { MatchEvent, MatchEventType, MatchStats, PlayerAttrs, Pos } from "./types";
@@ -188,14 +190,73 @@ export const FORMATIONS: Record<string, { name: string; slots: FormationSlotDef[
 
 export function formationSlots(key: string): FormationSlot[] {
   const slots = FORMATIONS[key]?.slots ?? FORMATIONS["4-4-2"].slots;
-  // Attach a unique per-instance key so formations with repeated labels
-  // (two CBs, two CMs, …) can hold distinct players in the lineup map.
   return slots.map((s, i) => ({ ...s, key: `${s.slot}-${i + 1}` }));
 }
 
 // ---------------------------------------------------------------------------
-// Player / team strength
+// 37-attribute position-dependent weighting for match simulation
 // ---------------------------------------------------------------------------
+
+/** Weight map: how much each attribute contributes to a given on-pitch role. */
+const ROLE_WEIGHTS: Record<Pos, Partial<Record<keyof PlayerAttrs, number>>> = {
+  GK: {
+    reflexes: 0.2, handling: 0.15, gkPositioning: 0.15, oneOnOne: 0.1,
+    kicking: 0.08, throwing: 0.05, aerialAbility: 0.07, communication: 0.05,
+    positioning: 0.03, decisions: 0.02,
+  },
+  DF: {
+    tackling: 0.18, marking: 0.15, heading: 0.1, positioning: 0.12,
+    composure: 0.06, concentration: 0.06, strength: 0.08, acceleration: 0.05,
+    sprintSpeed: 0.04, jumping: 0.05, teamwork: 0.04, bravery: 0.04,
+    decisions: 0.03,
+  },
+  MF: {
+    passing: 0.12, shortPassing: 0.1, vision: 0.1, decisions: 0.08,
+    composure: 0.07, tackling: 0.06, teamwork: 0.06, workRate: 0.06,
+    stamina: 0.06, ballControl: 0.05, firstTouch: 0.05, dribbling: 0.04,
+    positioning: 0.04, anticipation: 0.04, determination: 0.04,
+    dribbling: 0.04, crossing: 0.03, longPassing: 0.02,
+  },
+  FW: {
+    finishing: 0.18, composure: 0.1, dribbling: 0.08, acceleration: 0.08,
+    sprintSpeed: 0.07, firstTouch: 0.06, ballControl: 0.06, heading: 0.06,
+    positioning: 0.06, decisions: 0.05, balance: 0.04, agility: 0.04,
+    longShots: 0.04, penalties: 0.03, determination: 0.03,
+  },
+};
+
+// Special defensive contribution weights
+const DEF_CONTRIB: Partial<Record<keyof PlayerAttrs, number>> = {
+  tackling: 0.2, marking: 0.18, positioning: 0.15, heading: 0.08,
+  composure: 0.06, concentration: 0.06, strength: 0.08, jumping: 0.05,
+  bravery: 0.04, teamwork: 0.05, decisions: 0.03, anticipation: 0.04,
+};
+
+// Special midfield possession weights
+const MID_CONTRIB: Partial<Record<keyof PlayerAttrs, number>> = {
+  passing: 0.15, shortPassing: 0.12, vision: 0.1, ballControl: 0.08,
+  firstTouch: 0.08, dribbling: 0.06, teamwork: 0.06, decisions: 0.06,
+  composure: 0.06, stamina: 0.05, positioning: 0.05, anticipation: 0.04,
+  workRate: 0.04, crossing: 0.03, longPassing: 0.04,
+};
+
+// Special attacking/creation weights
+const ATT_CONTRIB: Partial<Record<keyof PlayerAttrs, number>> = {
+  finishing: 0.15, dribbling: 0.1, vision: 0.08, crossing: 0.06,
+  longShots: 0.06, firstTouch: 0.06, ballControl: 0.06, acceleration: 0.06,
+  sprintSpeed: 0.05, composure: 0.06, decisions: 0.05, agility: 0.04,
+  penalties: 0.03, heading: 0.04, balance: 0.04,
+};
+
+function weightedSum(attrs: PlayerAttrs, weights: Partial<Record<keyof PlayerAttrs, number>>): number {
+  let s = 0;
+  let tw = 0;
+  for (const [k, w] of Object.entries(weights)) {
+    s += (attrs[k as keyof PlayerAttrs] ?? 50) * (w as number);
+    tw += w as number;
+  }
+  return tw > 0 ? s / tw : 50;
+}
 
 export function roleFit(pos: Pos, role: Pos): number {
   if (pos === role) return 1;
@@ -207,21 +268,26 @@ export function roleFit(pos: Pos, role: Pos): number {
   return role === "MF" ? 0.75 : 0.35;
 }
 
-const ROLE_WEIGHTS: Record<Pos, Record<string, number>> = {
-  GK: { gk: 0.65, def: 0.2, tec: 0.1, str: 0.05 },
-  DF: { def: 0.55, pac: 0.15, pas: 0.1, hea: 0.1, str: 0.1 },
-  MF: { pas: 0.28, tec: 0.18, def: 0.12, sho: 0.1, pac: 0.12, str: 0.1, hea: 0.05 },
-  FW: { sho: 0.32, pac: 0.2, tec: 0.16, hea: 0.12, pas: 0.1, str: 0.1 },
-};
-
 export function roleStrength(p: EnginePlayer, role: Pos): number {
-  const w = ROLE_WEIGHTS[role];
-  let s = 0;
-  for (const k of Object.keys(w) as (keyof PlayerAttrs)[]) {
-    s += (p.attrs[k] ?? 0) * w[k];
-  }
+  const weights = ROLE_WEIGHTS[role];
+  const base = weightedSum(p.attrs, weights);
   const fit = roleFit(p.pos, role);
-  return s * fit;
+  return base * fit;
+}
+
+/** Attack contribution: used for chance creation and shooting. */
+function attackRating(p: EnginePlayer): number {
+  return weightedSum(p.attrs, ATT_CONTRIB) * roleFit(p.pos, "FW");
+}
+
+/** Defence contribution: used for defending chances. */
+function defenceRating(p: EnginePlayer): number {
+  return weightedSum(p.attrs, DEF_CONTRIB) * roleFit(p.pos, "DF");
+}
+
+/** Midfield contribution: used for possession. */
+function midfieldRating(p: EnginePlayer): number {
+  return weightedSum(p.attrs, MID_CONTRIB) * roleFit(p.pos, "MF");
 }
 
 export function playerFitness(p: EnginePlayer): number {
@@ -297,22 +363,40 @@ function talkStrengthMod(side: EngineSide, half: 1 | 2): number {
 function currentAtt(m: LiveMatch, t: 0 | 1): number {
   const side = t === 0 ? m.home : m.away;
   const ts = m.teams[t];
-  const att = ts.onPitch
-    .filter((s) => s.role === "FW" || s.role === "MF")
-    .reduce((sum, s) => sum + roleStrength(s.p, s.role) * playerFitness(s.p), 0);
-  const n = Math.max(1, ts.onPitch.filter((s) => s.role === "FW" || s.role === "MF").length);
-  return (att / n) * talkStrengthMod(side, m.half) * (0.88 + side.tactics.mentality * 0.0022);
+  const players = ts.onPitch.filter((s) => s.role === "FW" || s.role === "MF");
+  let total = 0;
+  for (const s of players) {
+    total += attackRating(s.p) * playerFitness(s.p);
+  }
+  const n = Math.max(1, players.length);
+  return (total / n) * talkStrengthMod(side, m.half) * (0.88 + side.tactics.mentality * 0.0022);
 }
 
 function currentDef(m: LiveMatch, t: 0 | 1): number {
   const side = t === 0 ? m.home : m.away;
   const ts = m.teams[t];
-  const def = ts.onPitch
-    .filter((s) => s.role === "DF" || s.role === "GK")
-    .reduce((sum, s) => sum + roleStrength(s.p, s.role) * playerFitness(s.p), 0);
-  const n = Math.max(1, ts.onPitch.filter((s) => s.role === "DF" || s.role === "GK").length);
-  return (def / n) * talkStrengthMod(side, m.half) * (1.12 - side.tactics.mentality * 0.0022);
+  const players = ts.onPitch.filter((s) => s.role === "DF" || s.role === "GK");
+  let total = 0;
+  for (const s of players) {
+    total += defenceRating(s.p) * playerFitness(s.p);
+  }
+  const n = Math.max(1, players.length);
+  return (total / n) * talkStrengthMod(side, m.half) * (1.12 - side.tactics.mentality * 0.0022);
 }
+
+function currentMid(m: LiveMatch, t: 0 | 1): number {
+  const ts = m.teams[t];
+  const players = ts.onPitch.filter((s) => s.role === "MF");
+  let total = 0;
+  for (const s of players) {
+    total += midfieldRating(s.p) * playerFitness(s.p);
+  }
+  return players.length > 0 ? total / players.length : 55;
+}
+
+// ---------------------------------------------------------------------------
+// Commentary
+// ---------------------------------------------------------------------------
 
 const GOAL_TEXTS = [
   "{p} finishes coolly for {t}!",
@@ -342,7 +426,7 @@ const RED_TEXTS = ["RED CARD! {p} is sent off for {t}!"];
 const OFFSIDE_TEXTS = ["{p} is caught offside.", "Offside — {p} strayed too early."];
 const INJURY_TEXTS = ["{p} is down and needs treatment.", "{p} limps off after a heavy challenge."];
 
-// Persian commentary pools — same {p} / {t} placeholders.
+// Persian commentary pools
 const FA_GOAL_TEXTS = [
   "{p} با خونسردی برای {t} گل می‌زند!",
   "گل! {p} دروازه {t} را باز کرد!",
@@ -388,13 +472,15 @@ function tpick(m: LiveMatch, kind: string): string {
   return m.rng.pick(TEXTS[m.lang][kind]);
 }
 
+// ---------------------------------------------------------------------------
+// Match stepping
+// ---------------------------------------------------------------------------
+
 export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
   const end = Math.min(m.minute + minutes, 90);
   while (m.minute < end && !m.ended) {
     const minute = m.minute + 1;
 
-    // Half-time boundary: pause once the 46th minute is attempted so the
-    // caller can deliver the team talk and flip `half` to 2.
     if (m.half === 1 && minute > 45) {
       m.atHt = true;
       addEvent(m, 45, "ht", 0, m.lang === "fa" ? "پایان نیمه اول" : "Half-time");
@@ -404,8 +490,8 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     m.minute = minute;
 
     // Possession side
-    const mid0 = currentSideMid(m, 0);
-    const mid1 = currentSideMid(m, 1);
+    const mid0 = currentMid(m, 0);
+    const mid1 = currentMid(m, 1);
     let p0 = 0.5 + (mid0 - mid1) * 0.02 + m.teams[0].momentum * 0.004 - m.teams[1].momentum * 0.004;
     p0 += (m.home.tactics.passing - m.away.tactics.passing) * 0.0004;
     p0 = Math.min(0.78, Math.max(0.22, p0));
@@ -429,22 +515,29 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     chanceP *= 1 + (sideA.tactics.mentality - 50) * 0.001;
 
     if (m.rng.chance(chanceP)) {
-      const shooter = m.rng.pick(attackerSide(m, attacker).filter((s) => s.role !== "GK")).p;
-      const baseXg = Math.max(0.03, Math.min(0.5, 0.08 + (aAtt - dDef) * 0.006 + (shooter.attrs.sho - 70) * 0.0012));
+      // Pick shooter — weighted toward forwards and attacking mids
+      const candidates = attackerSide(m, attacker).filter((s) => s.role !== "GK");
+      const shooter = m.rng.pick(candidates).p;
+
+      const finishingAttr = shooter.attrs.finishing ?? 50;
+      const baseXg = Math.max(0.03, Math.min(0.5, 0.08 + (aAtt - dDef) * 0.006 + (finishingAttr - 70) * 0.0012));
       m.teams[attacker].shots += 1;
       m.teams[attacker].xg += baseXg;
+
       const goalP = Math.max(0.04, Math.min(0.55, baseXg * (1 - gkEff / 130)));
       const roll = m.rng.next();
+
       if (roll < goalP) {
         m.teams[attacker].goals += 1;
         m.teams[attacker].onTarget += 1;
         m.teams[attacker].momentum = Math.min(100, m.teams[attacker].momentum + 25);
-        const assistP = m.rng.pick(attackerSide(m, attacker).filter((s) => s.role !== "GK" && s.p.id !== shooter.id)).p;
+        const assistP = m.rng.pick(candidates.filter((s) => s.p.id !== shooter.id)).p;
         const text = tpick(m, "goal").replace("{p}", pname(shooter)).replace("{t}", sideA.short);
         addEvent(m, minute, "goal", attacker, text, shooter.id, assistP.id);
       } else if (roll < goalP + 0.34) {
         const text = tpick(m, "save").replace("{p}", pname(shooter));
         addEvent(m, minute, "save", attacker, text, shooter.id);
+        m.teams[attacker].onTarget += 1;
       } else if (roll < goalP + 0.34 + 0.16) {
         m.teams[defender].corners += 1;
         const text = tpick(m, "corner").replace("{t}", sideA.short);
@@ -489,31 +582,19 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
       addEvent(m, minute, "offside", attacker, text, off.id);
     }
 
-    // Injury (skipped when a red card left a team short)
+    // Injury
     if (m.rng.chance(0.0028 * (1 - Math.min(0.5, (100 - avgCond(m, attacker)) / 100)))) {
       const victim = m.rng.pick(attackerSide(m, attacker)).p;
       const text = tpick(m, "injury").replace("{p}", pname(victim));
       addEvent(m, minute, "injury", attacker, text, victim.id);
     }
 
-    // Full time: end as soon as the 90th minute has been played. (The old
-    // `minute > 90` check could never fire because `end` is capped at 90,
-    // which left every match permanently stuck at minute 90.)
     if (m.half === 2 && minute >= 90) {
       m.ended = true;
       addEvent(m, 90, "ft", 0, m.lang === "fa" ? "پایان بازی" : "Full-time");
     }
   }
   return m;
-}
-
-function currentSideMid(m: LiveMatch, t: 0 | 1): number {
-  const ts = m.teams[t];
-  const mids = ts.onPitch
-    .filter((s) => s.role === "MF")
-    .map((s) => roleStrength(s.p, s.role) * playerFitness(s.p));
-  if (mids.length === 0) return 55;
-  return mids.reduce((a, b) => a + b, 0) / mids.length;
 }
 
 function attackerSide(m: LiveMatch, t: 0 | 1): EngineSlot[] {
@@ -547,7 +628,6 @@ export function applySub(m: LiveMatch, team: 0 | 1, outId: string, inId: string)
   const newSlot: EngineSlot = { p: inSlot.p, slot: outSlot.slot, role: outSlot.role };
   ts.onPitch[outIdx] = newSlot;
   ts.subsUsed += 1;
-  // Also update the side xi so final XI is consistent
   const side = team === 0 ? m.home : m.away;
   const xiIdx = side.xi.findIndex((s) => s.p.id === outId);
   if (xiIdx >= 0) side.xi[xiIdx] = newSlot;
@@ -587,7 +667,6 @@ export function computeRatings(m: LiveMatch): Record<string, number> {
         if (e.type === "red") r -= 1.6;
         if (e.type === "injury") r -= 0.5;
       }
-      // Assists
       const assists = m.events.filter((e) => e.assist === p.id);
       r += assists.length * 0.9;
       if (s.role !== "GK" && s.role !== "FW") {

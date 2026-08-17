@@ -556,16 +556,24 @@ export function buildEngineSideFromSquad(save: SaveData, squad: Player[], isHome
   const bench: EngineSlot[] = [];
   const used = new Set<string>();
 
-  for (const s of slots) {
+  // The lineup is keyed by slot label, so formations with repeated labels
+  // (two CBs, two CMs, …) collapse to one entry each. Track occupancy per
+  // slot index and backfill every unfilled slot below so the XI is always
+  // a full team of distinct players.
+  const filled = new Array<boolean>(slots.length).fill(false);
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
     const id = tactics.lineup[s.slot];
     const p = squad.find((p) => p.id === id && !used.has(id));
     if (!p) continue;
     used.add(p.id);
     xi.push({ p: toEnginePlayer(p), slot: s.slot, role: s.role });
+    filled[i] = true;
   }
-  // Fill missing slots with best available
-  for (const s of slots) {
-    if (xi.some((x) => x.slot === s.slot)) continue;
+  // Fill missing slots with the best available player for the role
+  for (let i = 0; i < slots.length; i++) {
+    if (filled[i]) continue;
+    const s = slots[i];
     let best: Player | null = null;
     let bestScore = -1;
     for (const p of squad) {
@@ -613,12 +621,35 @@ export function buildOpponentSide(save: SaveData, opponentClubId: string, seed: 
   const slots = formationSlots(formation);
   const xi: EngineSlot[] = [];
   const used = new Set<string>();
-  for (const s of slots) {
+  // Same slot-index backfill as buildEngineSideFromSquad: repeated slot
+  // labels in a formation must still produce a full 11-player XI.
+  const filled = new Array<boolean>(slots.length).fill(false);
+  for (let i = 0; i < slots.length; i++) {
+    const s = slots[i];
     const id = lineup[s.slot];
     const p = id ? squad.find((p) => p.id === id) : undefined;
     if (!p || used.has(p.id)) continue;
     used.add(p.id);
     xi.push({ p: toEnginePlayer(p), slot: s.slot, role: s.role });
+    filled[i] = true;
+  }
+  for (let i = 0; i < slots.length; i++) {
+    if (filled[i]) continue;
+    const s = slots[i];
+    let best: Player | null = null;
+    let bestScore = -1;
+    for (const p of squad) {
+      if (used.has(p.id)) continue;
+      const score = roleStrength(toEnginePlayer(p), s.role);
+      if (score > bestScore) {
+        bestScore = score;
+        best = p;
+      }
+    }
+    if (best) {
+      used.add(best.id);
+      xi.push({ p: toEnginePlayer(best), slot: s.slot, role: s.role });
+    }
   }
   const bench: EngineSlot[] = [];
   for (const p of sortSquad(squad)) {

@@ -339,15 +339,11 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
   while (m.minute < end && !m.ended) {
     const minute = m.minute + 1;
 
-    // Half-time boundary
+    // Half-time boundary: pause once the 46th minute is attempted so the
+    // caller can deliver the team talk and flip `half` to 2.
     if (m.half === 1 && minute > 45) {
       m.atHt = true;
       addEvent(m, 45, "ht", 0, "Half-time");
-      break;
-    }
-    if (m.half === 2 && minute > 90) {
-      m.ended = true;
-      addEvent(m, 90, "ft", 0, "Full-time");
       break;
     }
 
@@ -444,6 +440,14 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
       const victim = m.rng.pick(attackerSide(m, attacker)).p;
       const text = m.rng.pick(INJURY_TEXTS).replace("{p}", pname(victim));
       addEvent(m, minute, "injury", attacker, text, victim.id);
+    }
+
+    // Full time: end as soon as the 90th minute has been played. (The old
+    // `minute > 90` check could never fire because `end` is capped at 90,
+    // which left every match permanently stuck at minute 90.)
+    if (m.half === 2 && minute >= 90) {
+      m.ended = true;
+      addEvent(m, 90, "ft", 0, "Full-time");
     }
   }
   return m;

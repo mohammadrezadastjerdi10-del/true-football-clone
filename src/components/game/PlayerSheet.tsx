@@ -13,7 +13,7 @@ import type { MarketPlayer, Player, YouthPlayer } from "@/lib/game/types";
 import { Bar, Flag, FormChips, Ovr, PosBadge } from "@/components/game/shared";
 import { fmtMoney } from "@/lib/game/format";
 import { num, useLang } from "@/lib/i18n";
-import { Banknote, Handshake, Heart, Loader2, MessageCircle, TriangleAlert } from "lucide-react";
+import { Banknote, Binoculars, Handshake, Heart, Loader2, MessageCircle, TriangleAlert } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -63,7 +63,8 @@ export function PlayerSheet({
   if (!player) return null;
 
   const name = pName(player);
-  const ovr = computeOverall({ attrs: player.attrs, pos: player.pos });
+  const known = !("known" in player) || player.known !== false;
+  const ovr = known ? computeOverall({ attrs: player.attrs, pos: player.pos }) : 0;
   const form = formList(player);
   const isGK = player.pos === "GK";
   const groups = GROUPS.filter((g) => (isGK ? g.key === "goalkeeper" || g.key === "physical" || g.key === "mental" : g.key !== "goalkeeper"));
@@ -102,10 +103,14 @@ export function PlayerSheet({
                 <DialogDescription className="mt-0.5 flex items-center gap-2">
                   <PosBadge pos={player.pos} />
                   <span>{t("sq.yrs", { age: num(lang, player.age) })}</span>
-                  <span>·</span>
-                  <span>
-                    {t("sq.pot")} {num(lang, player.pot)}
-                  </span>
+                  {known && (
+                    <>
+                      <span>·</span>
+                      <span>
+                        {t("sq.pot")} {num(lang, player.pot)}
+                      </span>
+                    </>
+                  )}
                 </DialogDescription>
               </div>
             </div>
@@ -113,11 +118,16 @@ export function PlayerSheet({
               <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 {t("sq.ovr")}
               </div>
-              <Ovr value={ovr} className="text-2xl" />
+              {known ? (
+                <Ovr value={ovr} className="text-2xl" />
+              ) : (
+                <span className="font-mono text-2xl font-bold tabular-nums text-zinc-500">?</span>
+              )}
             </div>
           </div>
 
           {/* Status */}
+          {known && (
           <div className="mt-4 grid grid-cols-2 gap-3">
             <div className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2">
               <div className="flex items-center justify-between text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
@@ -134,9 +144,10 @@ export function PlayerSheet({
               <Bar value={"cond" in player ? player.cond : 100} tone={("cond" in player ? player.cond : 100) > 55 ? "ok" : ("cond" in player ? player.cond : 100) > 35 ? "warn" : "bad"} className="mt-1.5" />
             </div>
           </div>
+          )}
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
-            {form.length > 0 && (
+            {known && form.length > 0 && (
               <span className="flex items-center gap-1.5">
                 {t("sq.form")} <FormChips p={{ form } as Player} />
               </span>
@@ -155,17 +166,23 @@ export function PlayerSheet({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs">
-            {"val" in player && player.val != null && (
+            {!known && (
+              <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-400/25 bg-sky-400/10 px-2 py-0.5 text-[11px] font-medium text-sky-300">
+                <Binoculars className="size-3.5" />
+                {t("sc.unscouted")}
+              </span>
+            )}
+            {known && "val" in player && player.val != null && (
               <span className="flex items-center gap-1 font-mono text-muted-foreground">
                 {t("pl.value")} <span className="font-semibold text-foreground">{fmtMoney(player.val)}</span>
               </span>
             )}
-            {"wage" in player && player.wage != null && (
+            {known && "wage" in player && player.wage != null && (
               <span className="flex items-center gap-1 font-mono text-muted-foreground">
                 {t("pl.wage")} <span className="font-semibold text-foreground">{fmtMoney(player.wage)}</span>
               </span>
             )}
-            {"asking" in player && player.asking != null && (
+            {known && "asking" in player && player.asking != null && (
               <span className="flex items-center gap-1 font-mono text-amber-300">
                 {t("pl.asking")} <span className="font-semibold">{fmtMoney(player.asking)}</span>
               </span>
@@ -175,7 +192,18 @@ export function PlayerSheet({
 
         {/* Attributes */}
         <div className="space-y-5 px-6 py-5">
-          {groups.map((g) => (
+          {mode === "market" && !known ? (
+            <div className="rounded-xl border border-sky-400/20 bg-sky-400/[0.05] p-6 text-center">
+              <Binoculars className="mx-auto size-6 text-sky-300" />
+              <p className="mt-3 text-sm font-semibold text-foreground">{t("sc.hiddenTitle")}</p>
+              <p className="mx-auto mt-1.5 max-w-xs text-xs leading-relaxed text-muted-foreground">
+                {t("sc.hiddenBody")}
+              </p>
+              <p className="mt-3 text-[11px] font-medium text-sky-300/80">{t("sc.dispatchHint")}</p>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {groups.map((g) => (
             <div key={g.key}>
               <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-400/90">
                 {t(g.labelKey)}
@@ -197,7 +225,9 @@ export function PlayerSheet({
                 })}
               </div>
             </div>
-          ))}
+              ))}
+            </div>
+          )}
 
           {/* Morale actions (first team only) */}
           {mode === "squad" && (

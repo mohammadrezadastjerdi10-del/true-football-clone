@@ -15,7 +15,7 @@ import { Flag, Ovr, PosBadge, SectionTitle } from "@/components/game/shared";
 import { fmtMoney } from "@/lib/game/format";
 import { cn } from "@/lib/utils";
 import { faDigits, num, useLang } from "@/lib/i18n";
-import { BadgePlus, Check, Loader2, X } from "lucide-react";
+import { BadgePlus, Binoculars, Check, Loader2, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -86,7 +86,8 @@ export function TransfersTab({ save }: { save: SaveData }) {
             </div>
           }
         />
-        <p className="mt-3 text-[11px] text-muted-foreground">
+        <p className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <Binoculars className="size-3.5 text-sky-300/70" />
           {t("tf.scoutHint")}
         </p>
         <div className="mt-4 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -220,6 +221,7 @@ function MarketCard({
   lang: "en" | "fa";
 }) {
   const { t } = useLang();
+  const known = m.known !== false; // legacy saves without the flag stay fully visible
   const afford = balance >= m.asking;
   return (
     <div
@@ -228,8 +230,7 @@ function MarketCard({
       onClick={onOpen}
       onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onOpen(); }}
       className="group cursor-pointer rounded-xl border border-white/8 bg-white/[0.02] p-4 transition-colors hover:border-emerald-500/40"
-    >
-      <div className="flex items-start justify-between gap-2">
+    >        <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <Flag nat={m.nat} />
           <div>
@@ -237,26 +238,38 @@ function MarketCard({
               {m.first} {m.last}
             </p>
             <p className="text-[11px] text-muted-foreground">
-              {t("sq.yrs", { age: num(lang, m.age) })} · {t("sq.pot")} {num(lang, m.pot)} · {t("sq.form")} {lang === "fa" ? faDigits(m.form.toFixed(1)) : m.form.toFixed(1)}
+              {t("sq.yrs", { age: num(lang, m.age) })}{known ? ` · ${t("sq.pot")} ${num(lang, m.pot)}` : ""}{known ? ` · ${t("sq.form")} ${lang === "fa" ? faDigits(m.form.toFixed(1)) : m.form.toFixed(1)}` : ""}
             </p>
           </div>
         </div>
-        <Ovr value={m.ovr} />
+        {known ? (
+          <Ovr value={m.ovr} />
+        ) : (
+          <span className="font-mono text-sm font-bold tabular-nums text-zinc-500">?</span>
+        )}
       </div>
       <div className="mt-3 flex items-center justify-between">
-        <PosBadge pos={m.pos} />
+        <div className="flex items-center gap-1.5">
+          <PosBadge pos={m.pos} />
+          {!known && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-sky-400/25 bg-sky-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-sky-300">
+              <Binoculars className="size-3" />
+              {t("sc.unscouted")}
+            </span>
+          )}
+        </div>
         <span className="font-mono text-xs tabular-nums text-muted-foreground">
-          {fmtMoney(m.asking)}
+          {known ? fmtMoney(m.asking) : t("sc.unknownPrice")}
         </span>
       </div>
       <Button
         className="mt-3 w-full rounded-xl"
         size="sm"
-        disabled={!afford || busy}
+        disabled={!known || !afford || busy}
         onClick={(e) => { e.stopPropagation(); onBuy(); }}
       >
-        {busy ? <Loader2 className="size-3.5 animate-spin" /> : <BadgePlus className="size-3.5" />}
-        {afford ? t("tf.signPlayer") : t("tf.tooExpensive")}
+        {busy ? <Loader2 className="size-3.5 animate-spin" /> : known ? <BadgePlus className="size-3.5" /> : <Binoculars className="size-3.5" />}
+        {known ? (afford ? t("tf.signPlayer") : t("tf.tooExpensive")) : t("tf.scoutFirst")}
       </Button>
     </div>
   );

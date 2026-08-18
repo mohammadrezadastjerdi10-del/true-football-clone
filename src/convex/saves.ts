@@ -10,6 +10,7 @@ import {
   buyPlayer as buyPlayerFor,
   completeWeek,
   createCareer as createCareerData,
+  dispatchScout as dispatchScoutFor,
   interactPlayer as interactPlayerFor,
   nextEvent,
   promoteYouth as promoteYouthFor,
@@ -220,6 +221,22 @@ export const setTraining = mutation({
     });
     await ctx.db.patch(doc._id, { data: save, updatedAt: Date.now() });
     return { ok: true };
+  },
+});
+
+export const dispatchScout = mutation({
+  args: {
+    kind: v.union(v.literal("player"), v.literal("region")),
+    targetId: v.string(),
+    duration: v.number(),
+  },
+  handler: async (ctx, args) => {
+    const { doc } = await loadSave(ctx);
+    if (!doc) throw new Error("No career found");
+    const save = doc.data as SaveData;
+    const res = dispatchScoutFor(save, args.kind, args.targetId, args.duration);
+    if (res.ok) await ctx.db.patch(doc._id, { data: save, updatedAt: Date.now() });
+    return res;
   },
 });
 

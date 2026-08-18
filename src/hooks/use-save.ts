@@ -20,6 +20,7 @@ export function useSave() {
   const promoteYouth = useMutation(api.saves.promoteYouth);
   const releaseYouth = useMutation(api.saves.releaseYouth);
   const interactPlayer = useMutation(api.saves.interactPlayer);
+  const dispatchScout = useMutation(api.saves.dispatchScout);
   const startNextSeason = useMutation(api.saves.startNextSeason);
 
   return {
@@ -40,6 +41,7 @@ export function useSave() {
     promoteYouth,
     releaseYouth,
     interactPlayer,
+    dispatchScout,
     startNextSeason,
   };
 }

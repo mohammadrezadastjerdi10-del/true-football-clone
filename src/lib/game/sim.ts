@@ -18,6 +18,8 @@ import type {
   PlayerAttrs,
   Pos,
   SaveData,
+  ScoutKind,
+  ScoutMission,
   Tactics,
   TransferOffer,
   YouthPlayer,
@@ -58,6 +60,15 @@ export const SPONSOR_LEVELS = [
 
 export const PRIZE_MONEY = [8_000_000, 5_500_000, 4_000_000, 3_200_000, 2_600_000, 2_200_000, 1_800_000, 1_500_000, 1_200_000, 1_000_000, 800_000, 600_000];
 export const CUP_PRIZE = 1_500_000;
+
+// Scouting: duration (weeks) -> cost. Faster reports cost more.
+export const SCOUT_DURATIONS = [1, 2, 3] as const;
+export const SCOUT_COSTS: Record<(typeof SCOUT_DURATIONS)[number], number> = {
+  1: 500_000,
+  2: 300_000,
+  3: 200_000,
+};
+export const MAX_ACTIVE_SCOUTS = 3;
 
 const TIER_OVR = [86, 81, 77, 73];
 const TIER_BUDGET = [80_000_000, 45_000_000, 25_000_000, 15_000_000];
@@ -450,6 +461,7 @@ export function generateMarket(rng: Rng): MarketPlayer[] {
       asking: Math.round((p.val * rng.range(0.92, 1.3)) / 10000) * 10000,
       morale: rng.int(50, 85),
       form: Math.round(rng.range(5.5, 8.6) * 10) / 10,
+      known: false,
     });
   }
   return out;
@@ -549,6 +561,7 @@ export function createCareer(input: { seed: number; managerName: string; manager
     market: generateMarket(rng),
     listed: {},
     offers: {},
+    scouts: [],
     news: [],
     achievements: [],
     history: [],
@@ -1122,6 +1135,7 @@ export function applyMarketWeek(save: SaveData, rng: Rng) {
       asking: Math.round((p.val * rng.range(0.9, 1.3)) / 10000) * 10000,
       morale: rng.int(50, 85),
       form: Math.round(rng.range(5.5, 8.6) * 10) / 10,
+      known: false,
     });
   }
   // offers for listed players
@@ -1244,6 +1258,7 @@ export function applyWeekly(save: SaveData, rng: Rng) {
   applyTraining(save);
   applyMarketWeek(save, rng);
   applyYouthWeek(save, rng);
+  tickScouts(save, rng);
 
   // finances
   const wages = save.squad.reduce((a, p) => a + p.wage, 0);
@@ -1433,12 +1448,138 @@ export function startNextSeason(save: SaveData) {
   save.market = generateMarket(rng);
   save.listed = {};
   save.offers = {};
+  // active scout missions expire with the old market; reports stay archived
+  save.scouts = (save.scouts ?? []).filter((s) => s.done);
   save.lastMatch = null;
   save.flags = { ...save.flags, lastResults: "", winStreak: 0, lossStreak: 0, unbeaten: 0, promotedYouth: 0, signedCount: 0, soldCount: 0 } as unknown as Record<string, number>;
   save.weeklyWage = save.squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
   save.board = Math.min(100, save.board + 15);
   addNews(save, "info", L(save, `Season ${save.label} begins! New fixtures, new cup draw — go make history.`, `فصل ${save.label} آغاز شد! برنامه جدید، قرعه‌کشی جدید جام — بروید تاریخ بسازید.`));
+}
+
+// ---------------------------------------------------------------------------
+// Scouting
+// ---------------------------------------------------------------------------
+
+/** Dispatch a scout. `kind: "player"` unlocks a market player's profile;
+ *  `kind: "region"` hunts for new prospects in a country. Takes 1-3 weeks. */
+export function dispatchScout(
+  save: SaveData,
+  kind: ScoutKind,
+  targetId: string,
+  duration: number,
+): { ok: boolean; error?: string; missionId?: string } {
+  save.scouts = save.scouts ?? [];
+  const d = duration as (typeof SCOUT_DURATIONS)[number];
+  if (!SCOUT_COSTS[d]) return { ok: false, error: L(save, "Invalid scout duration.", "مدت زمان نامعتبر است.") };
+  const cost = SCOUT_COSTS[d];
+  const active = save.scouts.filter((s) => !s.done);
+  if (active.length >= MAX_ACTIVE_SCOUTS) {
+    return { ok: false, error: L(save, `The scout department is busy (max ${MAX_ACTIVE_SCOUTS} active missions).`, `بخش استعدادیابی مشغول است (حداکثر ${MAX_ACTIVE_SCOUTS} مأموریت فعال).`) };
+  }
+  if (active.some((s) => s.kind === kind && s.targetId === targetId)) {
+    return { ok: false, error: L(save, "A scout is already watching this target.", "یک استعدادیاب در حال حاضر این هدف را زیر نظر دارد.") };
+  }
+  if (save.balance < cost) return { ok: false, error: L(save, "Not enough funds for the scouting trip.", "بودجه کافی برای مأموریت استعدادیابی نیست.") };
+
+  let targetName = "";
+  let targetFlag: string | undefined;
+  let pos: Pos | undefined;
+  if (kind === "player") {
+    const mp = save.market.find((m) => m.id === targetId);
+    if (!mp) return { ok: false, error: L(save, "Player not found on the market.", "بازیکن در بازار پیدا نشد.") };
+    if (mp.known !== false) return { ok: false, error: L(save, "This player is already fully scouted.", "این بازیکن قبلاً کاملاً بررسی شده است.") };
+    targetName = `${mp.first} ${mp.last}`;
+    targetFlag = countryById(mp.nat).flag;
+    pos = mp.pos;
+  } else {
+    if (!ALL_COUNTRIES.some((c) => c.id === targetId)) return { ok: false, error: L(save, "Unknown scouting region.", "منطقه استعدادیابی نامعتبر است.") };
+    const c = countryById(targetId);
+    targetName = c.name;
+    targetFlag = c.flag;
+  }
+
+  save.balance -= cost;
+  save.financeLog.unshift({ week: save.week + 1, income: 0, expense: cost, note: `Scouting: ${targetName}` });
+  const mission: ScoutMission = {
+    id: `scout-${save.week}-${active.length}-${targetId}`,
+    kind,
+    targetId,
+    targetName,
+    targetFlag,
+    pos,
+    cost,
+    startWeek: save.week,
+    duration: d,
+    done: false,
+  };
+  save.scouts.push(mission);
+  addNews(save, "info", L(save, `🕵️ Scout dispatched ${kind === "player" ? `to watch ${targetName}` : `to ${targetName}`} — report in ${d} week${d > 1 ? "s" : ""} (${fmtMoney(cost)}).`, `🕵️ استعدادیاب ${kind === "player" ? `برای بررسی ${targetName}` : `به ${targetName}`} اعزام شد — گزارش تا ${d} هفته دیگر (${fmtMoney(cost)}).`));
+  return { ok: true, missionId: mission.id };
+}
+
+/** Complete any scout missions whose deadline has passed. Runs every week. */
+export function tickScouts(save: SaveData, rng: Rng) {
+  save.scouts = save.scouts ?? [];
+  for (const s of save.scouts) {
+    if (s.done) continue;
+    if (save.week + 1 < s.startWeek + s.duration) continue;
+    s.done = true;
+    const completedWeek = save.week + 1;
+    if (s.kind === "player") {
+      const mp = save.market.find((m) => m.id === s.targetId);
+      if (mp) mp.known = true;
+      s.report = {
+        completedWeek,
+        player: mp ? { ...mp } : undefined,
+        note: L(save, "Detailed report on the target player.", "گزارش کامل از بازیکن هدف."),
+      };
+      addNews(save, "info", L(save, `📋 Scout report on ${s.targetName} is in — full profile unlocked.`, `📋 گزارش استعدادیاب درباره ${s.targetName} رسید — پروفایل کامل فعال شد.`));
+    } else {
+      const found: MarketPlayer[] = [];
+      const count = 2 + rng.int(0, 2);
+      for (let i = 0; i < count; i++) {
+        const nat = s.targetId;
+        const pos = rng.pick(["GK", "DF", "DF", "MF", "MF", "FW"] as Pos[]);
+        const age = rng.int(17, 24);
+        const young = age <= 21;
+        const target = Math.max(56, Math.min(90, Math.round(64 + rng.gauss() * 7 + (young ? -1 : 4) + rng.range(-3, 3))));
+        const p = generatePlayer(rng, nat, pos, target, age, { pot: young ? Math.min(99, target + rng.int(8, 18)) : Math.min(99, target + 3) });
+        const ovr = computeOverall(p);
+        found.push({
+          id: `scout-${save.week}-${i}-${nat}`,
+          first: p.first,
+          last: p.last,
+          age,
+          nat,
+          pos,
+          attrs: p.attrs,
+          pot: p.pot,
+          ovr,
+          val: p.val,
+          wage: wageFor(ovr),
+          asking: Math.round((p.val * rng.range(0.85, 1.15)) / 10000) * 10000,
+          morale: rng.int(55, 85),
+          form: Math.round(rng.range(5.8, 8.4) * 10) / 10,
+          known: true,
+          foundByScout: true,
+        });
+      }
+      save.market.push(...found);
+      s.report = {
+        completedWeek,
+        found,
+        note: L(save, "The scouting trip uncovered new prospects.", "سفر استعدادیابی استعدادهای جدیدی کشف کرد."),
+      };
+      addNews(save, "info", L(save, `🕵️ Scouts returned from ${s.targetName} — ${found.map((f) => `${f.first} ${f.last} (${f.ovr})`).join(", ")} added to the market.`, `🕵️ استعدادیابها از ${s.targetName} بازگشتند — ${found.map((f) => `${f.first} ${f.last} (${f.ovr})`).join("، ")} به بازار اضافه شدند.`));
+    }
+  }
+  // keep the archive tidy
+  const done = save.scouts.filter((s) => s.done);
+  if (done.length > 30) {
+    save.scouts = save.scouts.filter((s) => !s.done).concat(done.slice(done.length - 30));
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1449,6 +1590,7 @@ export function buyPlayer(save: SaveData, marketId: string): { ok: boolean; erro
   if (save.squad.length >= 28) return { ok: false, error: L(save, "Squad is full (max 28 players).", "تیم پر است (حداکثر ۲۸ بازیکن).") };
   const mp = save.market.find((m) => m.id === marketId);
   if (!mp) return { ok: false, error: L(save, "Player not found on the market.", "بازیکن در بازار پیدا نشد.") };
+  if (mp.known === false) return { ok: false, error: L(save, "Scout this player first to unlock his full profile.", "برای فعال شدن پروفایل کامل، اول این بازیکن را استعدادیابی کنید.") };
   if (save.balance < mp.asking) return { ok: false, error: L(save, "Not enough funds.", "بودجه کافی نیست.") };
   const p: Player = {
     id: `buy-${save.week}-${mp.id}`,

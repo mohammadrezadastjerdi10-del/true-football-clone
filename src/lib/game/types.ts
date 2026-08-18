@@ -412,6 +412,8 @@ export interface MarketPlayer {
   asking: number;
   morale: number;
   form: number; // avg last rating
+  known: boolean; // false until a scout report reveals the full profile
+  foundByScout?: boolean; // true when a region scout discovered this player
 }
 
 export interface TransferOffer {
@@ -439,6 +441,35 @@ export interface YouthPlayer {
   xp: number;
   sinceWeek: number;
   name: string;
+}
+
+// ---------------------------------------------------------------------------
+// Scouting
+// ---------------------------------------------------------------------------
+
+export type ScoutKind = "player" | "region";
+
+export interface ScoutReport {
+  completedWeek: number;
+  /** Player reports: full snapshot of the scouted player (survives market rotation). */
+  player?: MarketPlayer;
+  /** Region reports: prospects discovered and added to the market. */
+  found?: MarketPlayer[];
+  note: string;
+}
+
+export interface ScoutMission {
+  id: string;
+  kind: ScoutKind;
+  targetId: string; // market player id or country id
+  targetName: string; // display name (player name or country name)
+  targetFlag?: string; // country flag for region missions / player nationality
+  pos?: Pos;
+  cost: number;
+  startWeek: number;
+  duration: number; // weeks
+  done: boolean;
+  report?: ScoutReport;
 }
 
 // ---------------------------------------------------------------------------
@@ -543,6 +574,7 @@ export interface SaveData {
   news: NewsItem[];
   achievements: string[];
   history: SeasonSummary[];
+  scouts: ScoutMission[];
   board: number; // 0-100
   flags: Record<string, number>;
   lastMatch: FinishedMatch | null;

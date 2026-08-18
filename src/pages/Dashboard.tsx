@@ -3,6 +3,7 @@ import { CareerStart } from "@/components/game/CareerStart";
 import { ClubTab } from "@/components/game/ClubTab";
 import { MatchView } from "@/components/game/MatchView";
 import { OverviewTab } from "@/components/game/OverviewTab";
+import { ScoutingTab } from "@/components/game/ScoutingTab";
 import { SquadTab } from "@/components/game/SquadTab";
 import { TacticsTab } from "@/components/game/TacticsTab";
 import { TrainingTab } from "@/components/game/TrainingTab";
@@ -17,6 +18,7 @@ import { fmtMoney } from "@/lib/game/format";
 import { LangToggle, num, useLang } from "@/lib/i18n";
 import {
   ArrowLeftRight,
+  Binoculars,
   Building2,
   Dumbbell,
   Home,
@@ -29,13 +31,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
 
-type TabId = "overview" | "squad" | "tactics" | "training" | "transfers" | "club";
+type TabId = "overview" | "squad" | "tactics" | "training" | "scouting" | "transfers" | "club";
 
 const TABS: { id: TabId; labelKey: string; icon: typeof Home }[] = [
   { id: "overview", labelKey: "nav.overview", icon: Home },
   { id: "squad", labelKey: "nav.squad", icon: Users },
   { id: "tactics", labelKey: "nav.tactics", icon: SlidersHorizontal },
   { id: "training", labelKey: "nav.training", icon: Dumbbell },
+  { id: "scouting", labelKey: "nav.scouting", icon: Binoculars },
   { id: "transfers", labelKey: "nav.transfers", icon: ArrowLeftRight },
   { id: "club", labelKey: "nav.club", icon: Building2 },
 ];
@@ -170,6 +173,8 @@ export default function Dashboard() {
           <TacticsTab save={data} />
         ) : tab === "training" ? (
           <TrainingTab save={data} />
+        ) : tab === "scouting" ? (
+          <ScoutingTab save={data} />
         ) : tab === "transfers" ? (
           <TransfersTab save={data} />
         ) : (

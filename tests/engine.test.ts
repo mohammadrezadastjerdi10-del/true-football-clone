@@ -16,16 +16,19 @@ import {
   type EngineSide,
 } from "../src/lib/game/engine";
 import { buildEngineSideFromSquad, buildOpponentSide, createCareer } from "../src/lib/game/sim";
+import { ATTR_KEYS, type PlayerAttrs } from "../src/lib/game/types";
+
+/** A flat 37-attribute profile at `value` — a "neutral" player for tests. */
+function baseAttrs(value: number): PlayerAttrs {
+  return Object.fromEntries(ATTR_KEYS.map((k) => [k, value])) as PlayerAttrs;
+}
 
 function player(id: string, pos: EnginePlayer["pos"], attrs: Partial<EnginePlayer["attrs"]>): EnginePlayer {
   return {
     id,
     name: `P${id}`,
     pos,
-    attrs: {
-      gk: 50, def: 50, pas: 50, sho: 50, hea: 50, pac: 50, str: 50, tec: 50,
-      ...attrs,
-    },
+    attrs: { ...baseAttrs(50), ...attrs },
     morale: 70,
     cond: 90,
     form: 7,
@@ -34,14 +37,14 @@ function player(id: string, pos: EnginePlayer["pos"], attrs: Partial<EnginePlaye
 
 function makeSide(): EngineSide {
   const xi = [
-    { p: player("g1", "GK", { gk: 80 }), slot: "GK", role: "GK" as const },
-    { p: player("d1", "DF", { def: 78 }), slot: "CB", role: "DF" as const },
-    { p: player("d2", "DF", { def: 74 }), slot: "CB", role: "DF" as const },
-    { p: player("m1", "MF", { pas: 76 }), slot: "CM", role: "MF" as const },
-    { p: player("m2", "MF", { pas: 72 }), slot: "CM", role: "MF" as const },
-    { p: player("f1", "FW", { sho: 80 }), slot: "ST", role: "FW" as const },
+    { p: player("g1", "GK", { reflexes: 80, handling: 78, gkPositioning: 76 }), slot: "GK", role: "GK" as const },
+    { p: player("d1", "DF", { tackling: 78, marking: 76, heading: 74 }), slot: "CB", role: "DF" as const },
+    { p: player("d2", "DF", { tackling: 74, marking: 72 }), slot: "CB", role: "DF" as const },
+    { p: player("m1", "MF", { passing: 76, vision: 72 }), slot: "CM", role: "MF" as const },
+    { p: player("m2", "MF", { passing: 72 }), slot: "CM", role: "MF" as const },
+    { p: player("f1", "FW", { finishing: 80 }), slot: "ST", role: "FW" as const },
   ];
-  const bench = [{ p: player("f2", "FW", { sho: 66 }), slot: "SUB", role: "FW" as const }];
+  const bench = [{ p: player("f2", "FW", { finishing: 66 }), slot: "SUB", role: "FW" as const }];
   return {
     id: "home",
     name: "Home FC",
@@ -75,14 +78,14 @@ describe("roleFit", () => {
 
 describe("roleStrength", () => {
   test("higher attributes yield higher strength", () => {
-    const strong = player("a", "FW", { sho: 90, pac: 85, tec: 80 });
-    const weak = player("b", "FW", { sho: 60, pac: 55, tec: 50 });
+    const strong = player("a", "FW", { finishing: 90, acceleration: 85, sprintSpeed: 85, dribbling: 80 });
+    const weak = player("b", "FW", { finishing: 60, acceleration: 55, sprintSpeed: 55, dribbling: 50 });
     expect(roleStrength(strong, "FW")).toBeGreaterThan(roleStrength(weak, "FW"));
   });
 
   test("a goalkeeper is stronger in goal than outfield players are", () => {
-    const gk = player("g", "GK", { gk: 82, def: 40, tec: 40, str: 40 });
-    const fw = player("f", "FW", { sho: 82, gk: 40, def: 40, tec: 40, str: 40 });
+    const gk = player("g", "GK", { reflexes: 82, handling: 80, gkPositioning: 78, tackling: 40, dribbling: 40, strength: 40 });
+    const fw = player("f", "FW", { finishing: 82, reflexes: 40, tackling: 40, dribbling: 40, strength: 40 });
     expect(roleStrength(gk, "GK")).toBeGreaterThan(roleStrength(fw, "GK"));
   });
 });

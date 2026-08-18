@@ -10,24 +10,27 @@ import {
   buyPlayer,
   computeOverall,
   createCareer,
-  fixturesForLeague,
+  dispatchScout,
   interactPlayer,
   isUserMatchWeek,
   lastResults,
   LEAGUE_SIZE,
+  MAX_ACTIVE_SCOUTS,
   nextEvent,
   playerValue,
   positionOf,
   promoteYouth,
   recordUserMatch,
+  SCOUT_COSTS,
   simulateWeek,
   standings,
   startNextSeason,
+  tickScouts,
   transferListPlayer,
   upgradeStadium,
 } from "../src/lib/game/sim";
 import { leagueById, clubById, type Player } from "../src/lib/game/world";
-import type { FinishedMatch } from "../src/lib/game/types";
+import { ATTR_KEYS, type FinishedMatch, type PlayerAttrs } from "../src/lib/game/types";
 
 const SEED = 2026;
 const CLUB = "eng-man-city";
@@ -44,7 +47,7 @@ function all70(pos: Player["pos"]): Player {
     age: 25,
     nat: "eng",
     pos,
-    attrs: { gk: 70, def: 70, pas: 70, sho: 70, hea: 70, pac: 70, str: 70, tec: 70 },
+    attrs: Object.fromEntries(ATTR_KEYS.map((k) => [k, 70])) as PlayerAttrs,
     pot: 80,
     val: 0,
     wage: 0,
@@ -265,10 +268,18 @@ describe("weekly flow", () => {
 });
 
 describe("transfers", () => {
-  test("buyPlayer adds the player and removes them from the market", () => {
+  test("buyPlayer rejects unscouted players until a scout report unlocks them", () => {
     const save = career();
     const cheapest = [...save.market].sort((a, b) => a.asking - b.asking)[0];
+    expect(cheapest.known).toBe(false);
     const before = save.balance;
+    const blocked = buyPlayer(save, cheapest.id);
+    expect(blocked.ok).toBe(false);
+    expect(blocked.error).toContain("Scout");
+    expect(save.balance).toBe(before); // nothing charged while blocked
+
+    // once a scout report unlocks the profile the purchase goes through
+    cheapest.known = true;
     const res = buyPlayer(save, cheapest.id);
     expect(res.ok).toBe(true);
     expect(save.squad).toHaveLength(23);
@@ -282,10 +293,12 @@ describe("transfers", () => {
     const save = career();
     const cheapest = [...save.market].sort((a, b) => a.asking - b.asking);
     for (let i = 0; i < 6; i++) {
+      cheapest[i].known = true;
       const res = buyPlayer(save, cheapest[i].id);
       expect(res.ok).toBe(true);
     }
     expect(save.squad).toHaveLength(28);
+    cheapest[6].known = true;
     expect(buyPlayer(save, cheapest[6].id).error).toContain("Squad is full");
   });
 
@@ -334,6 +347,67 @@ describe("stadium, youth, interactions", () => {
     expect(interactPlayer(save, p.id, "praise").ok).toBe(true);
     expect(p.morale).toBeGreaterThan(before);
     expect(interactPlayer(save, p.id, "praise").error).toContain("already been spoken to");
+  });
+});
+
+describe("scouting", () => {
+  test("dispatchScout charges the fee and rejects bad targets", () => {
+    const save = career();
+    const target = save.market.find((m) => m.known === false)!;
+    const before = save.balance;
+    const res = dispatchScout(save, "player", target.id, 2);
+    expect(res.ok).toBe(true);
+    expect(save.balance).toBe(before - SCOUT_COSTS[2]);
+    expect(save.scouts.filter((s) => !s.done)).toHaveLength(1);
+    expect(save.financeLog[0].note).toContain("Scouting");
+    // duplicate target rejected
+    expect(dispatchScout(save, "player", target.id, 1).error).toContain("already");
+    // already-scouted player rejected (every market player starts unknown)
+    const other = save.market.find((m) => m.known === false && m.id !== target.id)!;
+    other.known = true;
+    expect(dispatchScout(save, "player", other.id, 1).ok).toBe(false);
+    // insufficient funds
+    save.balance = 0;
+    const broke = save.market.find((m) => m.known === false && m.id !== target.id && m.id !== other.id)!;
+    expect(dispatchScout(save, "player", broke.id, 1).error).toContain("funds");
+  });
+
+  test("tickScouts completes player missions and unlocks the market profile", () => {
+    const save = career();
+    const target = save.market.find((m) => m.known === false)!;
+    dispatchScout(save, "player", target.id, 1);
+    const mission = save.scouts[0];
+    expect(mission.done).toBe(false);
+    tickScouts(save, new Rng(7));
+    expect(mission.done).toBe(true);
+    expect(mission.report?.player?.id).toBe(target.id);
+    expect(mission.report?.completedWeek).toBe(1);
+    expect(save.market.find((m) => m.id === target.id)?.known).toBe(true);
+  });
+
+  test("region missions add fully-scouted prospects from that country", () => {
+    const save = career();
+    const before = save.market.length;
+    dispatchScout(save, "region", "bra", 3);
+    save.week = 2; // 3-week mission completes on the third weekly tick
+    tickScouts(save, new Rng(9));
+    expect(save.market.length).toBeGreaterThanOrEqual(before + 2);
+    const added = save.market.filter((m) => m.foundByScout);
+    expect(added.length).toBeGreaterThanOrEqual(2);
+    expect(added.every((m) => m.known === true)).toBe(true);
+    expect(added.every((m) => m.nat === "bra")).toBe(true);
+  });
+
+  test("a maximum of 3 scout missions can run at once", () => {
+    const save = career();
+    const targets = save.market.filter((m) => m.known === false).slice(0, MAX_ACTIVE_SCOUTS);
+    for (const t of targets) {
+      expect(dispatchScout(save, "player", t.id, 1).ok).toBe(true);
+    }
+    const fourth = save.market.find((m) => m.known === false && !targets.includes(m))!;
+    const res = dispatchScout(save, "player", fourth.id, 1);
+    expect(res.ok).toBe(false);
+    expect(res.error).toContain("busy");
   });
 });
 

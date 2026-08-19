@@ -11,7 +11,7 @@ import {
   Trophy,
 } from "lucide-react";
 import { useSave } from "@/hooks/use-save";
-import { clubDefOf, CUP_ROUND_AT_WEEK, LEAGUE_ROUND_AT_WEEK, nextEvent, positionOf, standings } from "@/lib/game/sim";
+import { clubDefOf, CUP_ROUND_AT_WEEK, LEAGUE_ROUND_AT_WEEK, nextEvent, positionOf, standings, SEASON_WEEKS } from "@/lib/game/sim";
 import { leagueById } from "@/lib/game/world";
 import type { NextEvent, SaveData } from "@/lib/game/types";
 import { fmtMoney, ordinal } from "@/lib/game/format";
@@ -257,7 +257,7 @@ export const OverviewTab = memo(function OverviewTab({
           </div>
         </div>
         <div className="mt-4 flex gap-1.5 overflow-x-auto pb-2">
-          {Array.from({ length: 27 }, (_, i) => i + 1).map((w) => {
+          {Array.from({ length: SEASON_WEEKS }, (_, i) => i + 1).map((w) => {
             const round = LEAGUE_ROUND_AT_WEEK[w - 1];
             const cupR = CUP_ROUND_AT_WEEK[w - 1];
             const cupFixtures = save.cup.rounds[cupR - 1] ?? [];

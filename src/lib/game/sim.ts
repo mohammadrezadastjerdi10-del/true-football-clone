@@ -55,38 +55,42 @@ export function leagueOf(clubId: string): import("./world").LeagueDef {
   return leagueById(clubById(clubId).league);
 }
 
-export const LEAGUE_SIZE = 12;
-export const SEASON_WEEKS = 27; // 27 match weeks: 22 league rounds, 4 cup rounds, 1 winter break
-export const TOTAL_ROUNDS = (LEAGUE_SIZE - 1) * 2;
+export const LEAGUE_SIZE = 16;
+export const TOTAL_ROUNDS = (LEAGUE_SIZE - 1) * 2; // 30 rounds (double round-robin)
+// 34 weeks: 30 league rounds + 4 cup rounds, interspersed with rest weeks
+export const SEASON_WEEKS = 34;
 
-// week (1-26) -> league round (0 = cup week)
+// week (1-34) -> league round (0 = cup/rest week)
+// 30 league rounds spread across 34 weeks with 4 cup breaks
 export const LEAGUE_ROUND_AT_WEEK: number[] = [
-  1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 10, 0, 0, 11, 12, 13, 14, 15, 0, 16, 17, 18, 19, 20, 21, 22,
+  1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 10, 0, 11, 12, 13, 14, 0, 15, 16, 17, 18, 0, 19, 20, 21, 22, 0, 23, 24, 25, 26, 27, 28, 30,
 ];
-// week (1-26) -> cup round (0 = no cup)
-export const CUP_ROUND_AT_WEEK: number[] = [0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
+// week (1-34) -> cup round (0 = no cup)
+export const CUP_ROUND_AT_WEEK: number[] = [
+  0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+];
 
 export const CUP_ROUND_NAMES = ["First round", "Quarter-final", "Semi-final", "Final"];
 export const CUP_ROUND_SHORT = ["R1", "QF", "SF", "F"];
 
 export const STADIUM_LEVELS = [
-  { capacity: 18000, ticket: 28, cost: 0, name: "Compact Arena" },
-  { capacity: 32000, ticket: 35, cost: 15_000_000, name: "Community Stadium" },
-  { capacity: 48000, ticket: 42, cost: 40_000_000, name: "City Stadium" },
-  { capacity: 68000, ticket: 50, cost: 85_000_000, name: "Grand Stadium" },
-  { capacity: 90000, ticket: 58, cost: 150_000_000, name: "National Stadium" },
-  { capacity: 120000, ticket: 68, cost: 240_000_000, name: "Colossal Arena" },
+  { capacity: 18000, ticket: 25, cost: 0, name: "Compact Arena" },
+  { capacity: 32000, ticket: 32, cost: 12_000_000, name: "Community Stadium" },
+  { capacity: 48000, ticket: 40, cost: 35_000_000, name: "City Stadium" },
+  { capacity: 68000, ticket: 48, cost: 75_000_000, name: "Grand Stadium" },
+  { capacity: 90000, ticket: 55, cost: 140_000_000, name: "National Stadium" },
+  { capacity: 120000, ticket: 65, cost: 230_000_000, name: "Colossal Arena" },
 ];
 
 export const SPONSOR_LEVELS = [
-  { weekly: 250_000, cost: 0, name: "Local Partner" },
-  { weekly: 350_000, cost: 2_500_000, name: "Regional Brand" },
-  { weekly: 700_000, cost: 7_000_000, name: "National Brand" },
-  { weekly: 1_200_000, cost: 16_000_000, name: "Continental Brand" },
-  { weekly: 1_900_000, cost: 35_000_000, name: "Global Giant" },
+  { weekly: 150_000, cost: 0, name: "Local Partner" },
+  { weekly: 300_000, cost: 2_000_000, name: "Regional Brand" },
+  { weekly: 600_000, cost: 6_000_000, name: "National Brand" },
+  { weekly: 1_100_000, cost: 15_000_000, name: "Continental Brand" },
+  { weekly: 1_800_000, cost: 30_000_000, name: "Global Giant" },
 ];
 
-export const PRIZE_MONEY = [9_000_000, 6_000_000, 4_500_000, 3_500_000, 2_800_000, 2_400_000, 2_000_000, 1_600_000, 1_300_000, 1_100_000, 900_000, 700_000];
+export const PRIZE_MONEY = [8_000_000, 5_500_000, 4_000_000, 3_200_000, 2_600_000, 2_200_000, 1_900_000, 1_600_000, 1_400_000, 1_200_000, 1_050_000, 900_000, 800_000, 700_000, 600_000, 500_000];
 
 // League wealth multiplier on prize money (richer leagues pay out more).
 const LEAGUE_WEALTH: Record<string, number> = {
@@ -107,8 +111,10 @@ export const SCOUT_COSTS: Record<(typeof SCOUT_DURATIONS)[number], number> = {
 export const MAX_ACTIVE_SCOUTS = 3;
 
 const TIER_OVR = [86, 81, 77, 73];
-const TIER_BUDGET = [120_000_000, 60_000_000, 28_000_000, 12_000_000];
-const TIER_POPULARITY = [72000, 46000, 31000, 22000];
+// Realistic budgets: Tier 1 = elite (€120M+), Tier 2 = strong (€40-80M), Tier 3 = mid (€15-30M), Tier 4 = small (€5-15M)
+const TIER_BUDGET = [120_000_000, 50_000_000, 20_000_000, 8_000_000];
+// Realistic attendance: Tier 1 = 50-70k, Tier 2 = 30-45k, Tier 3 = 15-25k, Tier 4 = 8-15k
+const TIER_POPULARITY = [62000, 38000, 20000, 12000];
 
 export const FOCUS_ATTRS: Record<FocusKey, (keyof PlayerAttrs)[]> = {
   attack: ["finishing", "longShots", "dribbling", "ballControl", "firstTouch", "crossing"],
@@ -201,11 +207,14 @@ export function marketAsking(p: { ovr: number; age: number; pot?: number; pos: P
 }
 
 export function wageFor(ovr: number): number {
-  // Weekly wage in EUR, scaled to the game's revenue model: backups a few K,
-  // squad regulars tens of K, elite stars ~35K. Keeps the wage bill inside
-  // what sponsorship + matchday + prize money can actually sustain.
-  const w = Math.pow(Math.max(0, ovr - 45), 2.6) * 2.2;
-  return Math.max(1500, Math.round(w / 500) * 500);
+  // Realistic weekly wages in EUR:
+  // OVR 48-55: €3K-8K (squad depth)
+  // OVR 56-65: €8K-20K (regular starters)
+  // OVR 66-75: €20K-50K (key players)
+  // OVR 76-85: €50K-120K (stars)
+  // OVR 86+: €120K-250K (elite)
+  const base = Math.pow(Math.max(0, ovr - 42), 2.8) * 1.8;
+  return Math.max(3000, Math.round(base / 500) * 500);
 }
 
 export function avgForm(p: Player): number {
@@ -846,7 +855,7 @@ export function buildOpponentSide(save: SaveData, opponentClubId: string, seed: 
 
 export function nextEvent(save: SaveData): NextEvent {
   const week = save.week + 1;
-  if (week > 27) {
+  if (week > SEASON_WEEKS) {
     return { type: "season_end", round: 0, week, fixture: null };
   }
   const cupRound = CUP_ROUND_AT_WEEK[week - 1];
@@ -1405,7 +1414,7 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
   const rng = new Rng(hashSeed("week", save.clubId, save.seed, save.week + 1));
   const week = save.week + 1;
 
-  if (week <= 27) {
+  if (week <= SEASON_WEEKS) {
     const cupRound = CUP_ROUND_AT_WEEK[week - 1];
     if (cupRound > 0 && !save.cup.done) {
       // simulate cup fixtures
@@ -1484,7 +1493,7 @@ export function skipToNextMatch(save: SaveData): { advanced: boolean; weeks: num
 export function completeWeek(save: SaveData, rng: Rng) {
   applyWeekly(save, rng);
   save.week += 1;
-  if (save.week > 27 && save.phase === "league") {
+  if (save.week > SEASON_WEEKS && save.phase === "league") {
     endSeason(save);
   }
 }

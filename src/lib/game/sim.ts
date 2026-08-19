@@ -63,11 +63,11 @@ export const SEASON_WEEKS = 34;
 // week (1-34) -> league round (0 = cup/rest week)
 // 30 league rounds spread across 34 weeks with 4 cup breaks
 export const LEAGUE_ROUND_AT_WEEK: number[] = [
-  1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 10, 0, 11, 12, 13, 14, 0, 15, 16, 17, 18, 0, 19, 20, 21, 22, 0, 23, 24, 25, 26, 27, 28, 30,
+  1, 2, 3, 0, 4, 5, 6, 7, 8, 0, 9, 10, 11, 12, 13, 14, 0, 15, 16, 17, 18, 19, 20, 0, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30,
 ];
 // week (1-34) -> cup round (0 = no cup)
 export const CUP_ROUND_AT_WEEK: number[] = [
-  0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+  0, 0, 0, 1, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 ];
 
 export const CUP_ROUND_NAMES = ["First round", "Quarter-final", "Semi-final", "Final"];
@@ -1546,7 +1546,7 @@ export function startNextSeason(save: SaveData) {
   // age players
   for (const p of save.squad) {
     p.age += 1;
-    p.contract -= 26;
+    p.contract -= 18;
     if (p.contract < 13) p.contract += 52;
     if (p.age >= 30) {
       for (const k of ATTR_KEYS) {

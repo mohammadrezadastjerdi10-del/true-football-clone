@@ -549,12 +549,26 @@ export interface ManagerProfile {
 // Save data (entire game state)
 // ---------------------------------------------------------------------------
 
+export interface CustomClub {
+  name: string;
+  short: string;
+  p1: string;
+  p2: string;
+  stadium: string;
+  capacity: number;
+  country: string;
+  tier: number; // 1 = strongest squad tier
+  academy: number; // 1-3 youth academy level
+  board: number; // starting board confidence 0-100
+}
+
 export interface SaveData {
   v: 1;
   seed: number;
   lang?: "en" | "fa";
   manager: { name: string; nat: string };
   clubId: string;
+  customClub?: CustomClub;
   season: number; // 1-based
   label: string; // "2025/26"
   week: number; // current week (0 = before week 1)

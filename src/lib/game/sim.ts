@@ -25,7 +25,30 @@ import type {
   YouthPlayer,
 } from "./types";
 import { ATTR_KEYS, POS_ORDER } from "./types";
-import { clubById, countryById, leagueById, NAME_POOLS, ALL_COUNTRIES, SEASON_START_YEAR, starsFor } from "./world";
+import { clubById, countryById, leagueById, NAME_POOLS, ALL_COUNTRIES, SEASON_START_YEAR, starsFor, type ClubDef } from "./world";
+
+/**
+ * Resolve a club's display identity. Custom clubs keep the internal league
+ * slot (fixtures, table, cup draw) but override name/colours/stadium/nation.
+ */
+export function clubDefOf(save: SaveData, clubId: string): ClubDef {
+  const c = save.customClub;
+  if (c && clubId === save.clubId) {
+    const league = leagueById(save.clubId);
+    return {
+      id: clubId,
+      name: c.name,
+      short: c.short,
+      league: league.id,
+      country: c.country,
+      p1: c.p1,
+      p2: c.p2,
+      stadium: c.stadium,
+      tier: c.tier,
+    };
+  }
+  return clubById(clubId);
+}
 
 export const LEAGUE_SIZE = 12;
 export const SEASON_WEEKS = 27; // weeks 1-26 are match weeks, 27 = season end
@@ -340,10 +363,12 @@ function starNat(clubId: string, first: string, last: string): string {
   return STAR_NATS[key] ?? club.country;
 }
 
-export function generateClubSquad(clubId: string, season: number, seed: number): Player[] {
+export function generateClubSquad(clubId: string, season: number, seed: number, opts?: { country?: string; tier?: number }): Player[] {
   const rng = new Rng(hashSeed("squad", clubId, season, seed));
   const club = clubById(clubId);
-  const target = TIER_OVR[Math.max(0, Math.min(3, club.tier - 1))];
+  const nat = opts?.country ?? club.country;
+  const tier = opts?.tier ?? club.tier;
+  const target = TIER_OVR[Math.max(0, Math.min(3, tier - 1))];
   const stars = starsFor(clubId);
   const players: Player[] = [];
   const usedNames = new Set<string>();
@@ -395,9 +420,9 @@ export function generateClubSquad(clubId: string, season: number, seed: number):
         : rng.int(pos === "GK" ? 22 : 20, pos === "GK" ? 35 : 33);
       const ageFactor = age <= 21 ? -6 : age <= 24 ? -3 : age <= 28 ? 0 : age <= 31 ? 2 : 4;
       const ovr = Math.max(48, Math.min(96, target + ageFactor + rng.int(-2, 2)));
-      const p = generatePlayer(rng, club.country, pos, ovr, age, { pot: young ? Math.min(99, ovr + rng.int(6, 16)) : undefined });
+      const p = generatePlayer(rng, nat, pos, ovr, age, { pot: young ? Math.min(99, ovr + rng.int(6, 16)) : undefined });
       if (usedNames.has(playerName(p))) {
-        const n = makeName(rng, club.country);
+        const n = makeName(rng, nat);
         p.first = n.first;
         p.last = n.last;
       }
@@ -408,15 +433,17 @@ export function generateClubSquad(clubId: string, season: number, seed: number):
   return players;
 }
 
-export function generateYouthSquad(clubId: string, season: number, seed: number): YouthPlayer[] {
+export function generateYouthSquad(clubId: string, season: number, seed: number, opts?: { country?: string; academy?: number }): YouthPlayer[] {
   const rng = new Rng(hashSeed("youth", clubId, season, seed));
   const club = clubById(clubId);
+  const nat = opts?.country ?? club.country;
+  const academy = Math.max(1, Math.min(3, opts?.academy ?? 1));
   const out: YouthPlayer[] = [];
   for (let i = 0; i < 12; i++) {
     const pos = rng.pick(["GK", "DF", "DF", "MF", "MF", "MF", "FW", "FW"] as Pos[]);
     const age = rng.int(15, 17);
-    const target = rng.int(48, 60) + (pos === "FW" ? 2 : 0);
-    const p = generatePlayer(rng, club.country, pos, target, age, { pot: Math.min(99, target + rng.int(14, 26)) });
+    const target = Math.min(68, rng.int(48, 60) + (pos === "FW" ? 2 : 0) + (academy - 1) * 3);
+    const p = generatePlayer(rng, nat, pos, target, age, { pot: Math.min(99, target + rng.int(14, 26)) });
     out.push({
       id: `youth-${i}-${clubId}`,
       first: p.first,
@@ -522,15 +549,31 @@ export function drawCupNextRound(rng: Rng, winners: string[], round: number): Cu
 // Career creation
 // ---------------------------------------------------------------------------
 
-export function createCareer(input: { seed: number; managerName: string; managerNat: string; clubId: string; lang?: "en" | "fa" }): SaveData {
+export interface CustomClubInput {
+  name: string;
+  short: string;
+  country: string;
+  p1: string;
+  p2: string;
+  stadium: string;
+  capacity: number;
+  tier: number; // 1-4 squad strength
+  academy: number; // 1-3 youth academy level
+  board: number; // starting board confidence 0-100
+}
+
+export function createCareer(input: { seed: number; managerName: string; managerNat: string; clubId: string; lang?: "en" | "fa"; custom?: CustomClubInput }): SaveData {
   const rng = new Rng(input.seed);
   const club = clubById(input.clubId);
   const league = leagueById(club.league);
   const clubs = league.clubs.map((c) => c.id);
-  const squad = generateClubSquad(club.id, 1, input.seed);
-  const youth = generateYouthSquad(club.id, 1, input.seed);
+  const custom = input.custom;
+  const nat = custom?.country ?? club.country;
+  const tier = custom?.tier ?? club.tier;
+  const squad = generateClubSquad(club.id, 1, input.seed, { country: nat, tier });
+  const youth = generateYouthSquad(club.id, 1, input.seed, { country: nat, academy: custom?.academy ?? 1 });
   const stadium = STADIUM_LEVELS[0];
-  const balance = TIER_BUDGET[Math.max(0, Math.min(3, club.tier - 1))] + rng.int(0, 8_000_000);
+  const balance = TIER_BUDGET[Math.max(0, Math.min(3, (custom?.tier ?? club.tier) - 1))] + rng.int(0, 8_000_000);
 
   const save: SaveData = {
     v: 1,
@@ -543,7 +586,7 @@ export function createCareer(input: { seed: number; managerName: string; manager
     week: 0,
     phase: "league",
     balance,
-    stadium: { level: 1, capacity: stadium.capacity, ticket: stadium.ticket, name: `${club.stadium}` },
+    stadium: { level: 1, capacity: custom?.capacity ?? stadium.capacity, ticket: stadium.ticket, name: custom?.stadium ?? club.stadium },
     sponsor: { level: 1, weekly: SPONSOR_LEVELS[0].weekly },
     squad,
     youth,
@@ -565,9 +608,23 @@ export function createCareer(input: { seed: number; managerName: string; manager
     news: [],
     achievements: [],
     history: [],
-    board: 55 + (club.tier === 1 ? 12 : club.tier === 2 ? 7 : club.tier === 3 ? 3 : 0),
+    board: custom?.board ?? 55 + (club.tier === 1 ? 12 : club.tier === 2 ? 7 : club.tier === 3 ? 3 : 0),
     flags: {},
     lastMatch: null,
+    customClub: custom
+      ? {
+          name: custom.name,
+          short: custom.short,
+          p1: custom.p1,
+          p2: custom.p2,
+          stadium: custom.stadium,
+          capacity: custom.capacity,
+          country: custom.country,
+          tier: custom.tier,
+          academy: custom.academy,
+          board: custom.board,
+        }
+      : undefined,
     financeLog: [],
     weeklyWage: 0,
     weeklyIncome: 0,
@@ -579,7 +636,7 @@ export function createCareer(input: { seed: number; managerName: string; manager
   save.cup.byes = draw.byes;
   save.weeklyWage = squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
-  addNews(save, "info", L(save, `Welcome to ${club.name}, ${input.managerName}! Season ${save.label} begins — your board expects a solid campaign.`, `به ${club.name} خوش آمدید، ${input.managerName}! فصل ${save.label} آغاز شد — هیئت‌مدیره انتظار یک فصل خوب دارد.`));
+  addNews(save, "info", L(save, `Welcome to ${clubDefOf(save, save.clubId).name}, ${input.managerName}! Season ${save.label} begins — your board expects a solid campaign.`, `به ${clubDefOf(save, save.clubId).name} خوش آمدید، ${input.managerName}! فصل ${save.label} آغاز شد — هیئت‌مدیره انتظار یک فصل خوب دارد.`));
   addNews(save, "info", L(save, `Club budget: ${fmtMoney(save.balance)}. Sponsor: ${SPONSOR_LEVELS[0].name}. Stadium capacity: ${save.stadium.capacity.toLocaleString()}.`, `بودجه باشگاه: ${fmtMoney(save.balance)}. اسپانسر: ${SPONSOR_LEVELS[0].name}. ظرفیت ورزشگاه: ${save.stadium.capacity.toLocaleString()}.`));
   return save;
 }
@@ -626,7 +683,7 @@ export function autoPick(squad: Player[], formation: string): Record<string, str
 }
 
 export function buildEngineSideFromSquad(save: SaveData, squad: Player[], isHome: boolean, seed: number): EngineSide {
-  const club = clubById(save.clubId);
+  const club = clubDefOf(save, save.clubId);
   const tactics = save.tactics;
   const slots = formationSlots(tactics.formation);
   const xi: EngineSlot[] = [];
@@ -817,8 +874,8 @@ function cupDecider(save: SaveData, home: string, away: string, round: number, h
 /** "MCI 2–1 ARS (Cup)" score line, localised. */
 function cupScoreLine(save: SaveData, fx: CupFixture): string {
   const pens = fx.hg === fx.ag;
-  const en = `${clubById(fx.home).short} ${fx.hg}–${fx.ag} ${clubById(fx.away).short} (Cup${pens ? " · pens" : ""})`;
-  const fa = `${clubById(fx.home).short} ${fx.hg}–${fx.ag} ${clubById(fx.away).short} (جام${pens ? " · پنالتی" : ""})`;
+  const en = `${clubDefOf(save, fx.home).short} ${fx.hg}–${fx.ag} ${clubDefOf(save, fx.away).short} (Cup${pens ? " · pens" : ""})`;
+  const fa = `${clubDefOf(save, fx.home).short} ${fx.hg}–${fx.ag} ${clubDefOf(save, fx.away).short} (جام${pens ? " · پنالتی" : ""})`;
   return L(save, en, fa);
 }
 
@@ -946,9 +1003,9 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
       save.cup.winner = champion;
       if (champion === save.clubId) {
         save.seasonTrophies.push("Cup");
-        addNews(save, "cup", L(save, `🏆 ${clubById(save.clubId).name} win the National Cup!`, `🏆 ${clubById(save.clubId).name} قهرمان جام حذفی شد!`));
+        addNews(save, "cup", L(save, `🏆 ${clubDefOf(save, save.clubId).name} win the National Cup!`, `🏆 ${clubDefOf(save, save.clubId).name} قهرمان جام حذفی شد!`));
       } else {
-        addNews(save, "cup", L(save, `${clubById(champion).name} win the National Cup.`, `${clubById(champion).name} قهرمان جام حذفی شد.`));
+        addNews(save, "cup", L(save, `${clubDefOf(save, champion).name} win the National Cup.`, `${clubDefOf(save, champion).name} قهرمان جام حذفی شد.`));
       }
     } else {
       const nextRound = save.cup.nextRound + 1;
@@ -1015,7 +1072,7 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
 
   // matchday income (home)
   if (m.home === save.clubId) {
-    const club = clubById(save.clubId);
+    const club = clubDefOf(save, save.clubId);
     const pop = TIER_POPULARITY[Math.max(0, Math.min(3, club.tier - 1))];
     const pos = positionOf(save);
     const last = (save.flags.lastResults as unknown as string) ?? "";
@@ -1023,17 +1080,17 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
     const factor = (0.85 + (LEAGUE_SIZE - pos) * 0.035) * (0.95 + wins * 0.03);
     const attendance = Math.min(save.stadium.capacity, Math.round(pop * factor));
     const income = attendance * save.stadium.ticket;
-    addFinance(save, income, 0, `Matchday income vs ${clubById(m.away).short} (${attendance.toLocaleString()} fans)`);
+    addFinance(save, income, 0, `Matchday income vs ${clubDefOf(save, m.away).short} (${attendance.toLocaleString()} fans)`);
   }
 
   addNews(save, "match", L(save,
-    `${clubById(m.home).short} ${m.hg}–${m.ag} ${clubById(m.away).short} (${m.kind === "cup" ? "Cup " + CUP_ROUND_SHORT[m.round - 1] : "League R" + m.round})`,
-    `${clubById(m.home).short} ${m.hg}–${m.ag} ${clubById(m.away).short} (${m.kind === "cup" ? "جام " + CUP_ROUND_SHORT[m.round - 1] : "لیگ هفته " + m.round})`));
-  if (win) addNews(save, "match", L(save, `Victory for ${clubById(save.clubId).name}! ${scorerText(m, save)}`, `پیروزی برای ${clubById(save.clubId).name}! ${scorerText(m, save)}`));
-  else if (pensWin) addNews(save, "match", L(save, `Through on penalties for ${clubById(save.clubId).name}! ${scorerText(m, save)}`, `صعود با ضربات پنالتی برای ${clubById(save.clubId).name}! ${scorerText(m, save)}`));
-  else if (pensLoss) addNews(save, "match", L(save, `Out on penalties for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `حذف در ضربات پنالتی برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
-  else if (draw) addNews(save, "match", L(save, `Points shared for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `تقسیم امتیاز برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
-  else addNews(save, "match", L(save, `Defeat for ${clubById(save.clubId).name}. ${scorerText(m, save)}`, `شکست برای ${clubById(save.clubId).name}. ${scorerText(m, save)}`));
+    `${clubDefOf(save, m.home).short} ${m.hg}–${m.ag} ${clubDefOf(save, m.away).short} (${m.kind === "cup" ? "Cup " + CUP_ROUND_SHORT[m.round - 1] : "League R" + m.round})`,
+    `${clubDefOf(save, m.home).short} ${m.hg}–${m.ag} ${clubDefOf(save, m.away).short} (${m.kind === "cup" ? "جام " + CUP_ROUND_SHORT[m.round - 1] : "لیگ هفته " + m.round})`));
+  if (win) addNews(save, "match", L(save, `Victory for ${clubDefOf(save, save.clubId).name}! ${scorerText(m, save)}`, `پیروزی برای ${clubDefOf(save, save.clubId).name}! ${scorerText(m, save)}`));
+  else if (pensWin) addNews(save, "match", L(save, `Through on penalties for ${clubDefOf(save, save.clubId).name}! ${scorerText(m, save)}`, `صعود با ضربات پنالتی برای ${clubDefOf(save, save.clubId).name}! ${scorerText(m, save)}`));
+  else if (pensLoss) addNews(save, "match", L(save, `Out on penalties for ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`, `حذف در ضربات پنالتی برای ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`));
+  else if (draw) addNews(save, "match", L(save, `Points shared for ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`, `تقسیم امتیاز برای ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`));
+  else addNews(save, "match", L(save, `Defeat for ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`, `شکست برای ${clubDefOf(save, save.clubId).name}. ${scorerText(m, save)}`));
 }
 
 function scorerText(m: FinishedMatch, save: SaveData): string {
@@ -1160,12 +1217,12 @@ export function applyMarketWeek(save: SaveData, rng: Rng) {
 }
 
 export function applyYouthWeek(save: SaveData, rng: Rng) {
-  const club = clubById(save.clubId);
+  const nat = save.customClub?.country ?? clubById(save.clubId).country;
   if (save.youth.length < 16 && rng.chance(0.55)) {
     const pos = rng.pick(["GK", "DF", "DF", "MF", "MF", "MF", "FW", "FW"] as Pos[]);
     const age = rng.int(15, 16);
     const target = rng.int(47, 57);
-    const p = generatePlayer(rng, club.country, pos, target, age, { pot: Math.min(99, target + rng.int(16, 28)) });
+    const p = generatePlayer(rng, nat, pos, target, age, { pot: Math.min(99, target + rng.int(16, 28)) });
     save.youth.push({
       id: `youth-${save.week}-${save.youth.length}`,
       first: p.first,
@@ -1336,7 +1393,7 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
         if (cupRound >= 4 || winners.length <= 1) {
           save.cup.done = true;
           save.cup.winner = winners[0];
-          addNews(save, "cup", L(save, `${clubById(winners[0]).name} win the National Cup!`, `${clubById(winners[0]).name} قهرمان جام حذفی شد!`));
+          addNews(save, "cup", L(save, `${clubDefOf(save, winners[0]).name} win the National Cup!`, `${clubDefOf(save, winners[0]).name} قهرمان جام حذفی شد!`));
         } else {
           save.cup.nextRound = cupRound + 1;
           save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, week)), winners, cupRound + 1));
@@ -1356,7 +1413,7 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
           f.hg = res.hg;
           f.ag = res.ag;
         }
-        addNews(save, "result", L(save, `Round ${leagueRound} complete. Leader: ${clubById(standings(save)[0].clubId).name}.`, `هفته ${leagueRound} کامل شد. صدرنشین: ${clubById(standings(save)[0].clubId).name}.`));
+        addNews(save, "result", L(save, `Round ${leagueRound} complete. Leader: ${clubDefOf(save, standings(save)[0].clubId).name}.`, `هفته ${leagueRound} کامل شد. صدرنشین: ${clubDefOf(save, standings(save)[0].clubId).name}.`));
       }
     }
   }
@@ -1375,7 +1432,7 @@ export function completeWeek(save: SaveData, rng: Rng) {
 }
 
 function tierStrengthOf(clubId: string, save: SaveData): { att: number; def: number; mid: number; gk: number; mentality: number } {
-  const club = clubById(clubId);
+  const club = clubDefOf(save, clubId);
   const base = TIER_OVR[Math.max(0, Math.min(3, club.tier - 1))];
   const o = 5;
   // deterministic small variation per club
@@ -1390,7 +1447,7 @@ export function endSeason(save: SaveData) {
   addFinance(save, prize + cupPrize, 0, `Prize money: ${ordinal(pos)} in league${cupPrize ? " + cup win" : ""}`);
   if (pos === 1) {
     save.seasonTrophies.push("League");
-    addNews(save, "achievement", L(save, `🏆 CHAMPIONS! ${clubById(save.clubId).name} win the league!`, `🏆 قهرمان! ${clubById(save.clubId).name} قهرمان لیگ شد!`));
+    addNews(save, "achievement", L(save, `🏆 CHAMPIONS! ${clubDefOf(save, save.clubId).name} win the league!`, `🏆 قهرمان! ${clubDefOf(save, save.clubId).name} قهرمان لیگ شد!`));
   } else if (pos <= 3) {
     addNews(save, "result", L(save, `Season complete: ${ordinal(pos)} place.`, `پایان فصل: مقام ${ordinal(pos)}.`));
   } else {
@@ -1773,11 +1830,11 @@ export function fmtMoney(n: number): string {
 }
 
 export function leagueRowToName(save: SaveData, clubId: string): string {
-  return clubById(clubId).name;
+  return clubDefOf(save, clubId).name;
 }
 
 export function clubShort(save: SaveData, clubId: string): string {
-  return clubById(clubId).short;
+  return clubDefOf(save, clubId).short;
 }
 
 export function avgSquadOverall(save: SaveData): number {

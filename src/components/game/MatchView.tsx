@@ -11,8 +11,8 @@ import {
   stepMatch,
   type LiveMatch,
 } from "@/lib/game/engine";
-import { buildEngineSideFromSquad, buildOpponentSide, playerName } from "@/lib/game/sim";
-import { clubById, type ClubDef } from "@/lib/game/world";
+import { buildEngineSideFromSquad, buildOpponentSide, clubDefOf, playerName } from "@/lib/game/sim";
+import type { ClubDef } from "@/lib/game/world";
 import { hashSeed } from "@/lib/game/rng";
 import type { NextEvent, SaveData, ScorerRec } from "@/lib/game/types";
 import { Crest, PosBadge } from "@/components/game/shared";
@@ -41,8 +41,8 @@ export function MatchView({
   const { t, lang } = useLang();
   const isHome = ev.fixture ? ev.fixture.home === save.clubId : true;
   const userTeam: 0 | 1 = isHome ? 0 : 1;
-  const club = clubById(save.clubId);
-  const oppClub = ev.fixture ? clubById(ev.fixture.home === save.clubId ? ev.fixture.away : ev.fixture.home) : club;
+  const club = clubDefOf(save, save.clubId);
+  const oppClub = ev.fixture ? clubDefOf(save, ev.fixture.home === save.clubId ? ev.fixture.away : ev.fixture.home) : club;
 
   const seed = useMemo(
     () => hashSeed("match", save.clubId, save.seed, save.week + 1, ev.round, ev.type),
@@ -116,8 +116,8 @@ export function MatchView({
         injuries,
         subs,
         xi: mySide.xi.map((s) => s.p.id),
-        homeTeam: clubById(ev.fixture!.home).name,
-        awayTeam: clubById(ev.fixture!.away).name,
+        homeTeam: clubDefOf(save, ev.fixture!.home).name,
+        awayTeam: clubDefOf(save, ev.fixture!.away).name,
       });
       toast.success(
         myGoals > oppGoals
@@ -173,7 +173,7 @@ export function MatchView({
         </div>
 
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-8">
-          <TeamScore club={clubById(mySide.id)} goals={myGoals} highlight />
+          <TeamScore club={clubDefOf(save, mySide.id)} goals={myGoals} highlight />
           <div className="text-center">
             <div className="font-mono text-5xl font-bold tabular-nums tracking-tight">
               {num(lang, myGoals)}
@@ -184,7 +184,7 @@ export function MatchView({
               {match.ended ? t("mv.finalWhistle") : match.minute <= 45 ? t("mv.minute", { min: num(lang, match.minute) }) : t("mv.secondHalf")}
             </div>
           </div>
-          <TeamScore club={clubById(oppSide.id)} goals={oppGoals} />
+          <TeamScore club={clubDefOf(save, oppSide.id)} goals={oppGoals} />
         </div>
 
         {/* Stats */}

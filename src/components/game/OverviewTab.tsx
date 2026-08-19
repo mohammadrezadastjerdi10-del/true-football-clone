@@ -9,8 +9,8 @@ import {
   Trophy,
 } from "lucide-react";
 import { useSave } from "@/hooks/use-save";
-import { nextEvent, positionOf, standings } from "@/lib/game/sim";
-import { clubById, leagueById } from "@/lib/game/world";
+import { clubDefOf, nextEvent, positionOf, standings } from "@/lib/game/sim";
+import { leagueById } from "@/lib/game/world";
 import type { NextEvent, SaveData } from "@/lib/game/types";
 import { fmtMoney, ordinal } from "@/lib/game/format";
 import { Bar, Crest, ResultChips, SectionTitle, Stat } from "@/components/game/shared";
@@ -40,14 +40,14 @@ export function OverviewTab({
 }) {
   const { advanceWeek, startNextSeason, isLoading } = useSave();
   const { t, lang } = useLang();
-  const club = clubById(save.clubId);
+  const club = clubDefOf(save, save.clubId);
   const league = leagueById(save.clubId);
   const ev = nextEvent(save);
   const pos = positionOf(save);
   const rows = standings(save);
   const myRow = rows.find((r) => r.clubId === save.clubId)!;
   const oppClub =
-    ev.fixture ? clubById(ev.fixture.home === save.clubId ? ev.fixture.away : ev.fixture.home) : null;
+    ev.fixture ? clubDefOf(save, ev.fixture.home === save.clubId ? ev.fixture.away : ev.fixture.home) : null;
   const home = ev.fixture ? ev.fixture.home === save.clubId : null;
 
   const advance = async () => {
@@ -237,7 +237,7 @@ export function OverviewTab({
               </thead>
               <tbody>
                 {rows.map((r, i) => {
-                  const c = clubById(r.clubId);
+                  const c = clubDefOf(save, r.clubId);
                   const mine = r.clubId === save.clubId;
                   return (
                     <tr

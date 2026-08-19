@@ -12,7 +12,8 @@ import { Crest } from "@/components/game/shared";
 import { Button } from "@/components/ui/button";
 import { useSave } from "@/hooks/use-save";
 import { useAuth } from "@/hooks/use-auth";
-import { clubById, leagueById } from "@/lib/game/world";
+import { leagueById } from "@/lib/game/world";
+import { clubDefOf } from "@/lib/game/sim";
 import type { NextEvent } from "@/lib/game/types";
 import { fmtMoney } from "@/lib/game/format";
 import { LangToggle, num, useLang } from "@/lib/i18n";
@@ -75,7 +76,7 @@ export default function Dashboard() {
           </div>
           <h1 className="text-2xl font-bold tracking-tight">{t("sacked.title")}</h1>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            {t("sacked.body", { club: clubById(data.clubId).name })}
+            {t("sacked.body", { club: clubDefOf(data, data.clubId).name })}
           </p>
           <Button className="mt-6 w-full rounded-xl" size="lg" onClick={() => setRestart(true)}>
             {t("sacked.newCareer")}
@@ -85,7 +86,7 @@ export default function Dashboard() {
     );
   }
 
-  const club = clubById(data.clubId);
+  const club = clubDefOf(data, data.clubId);
   const league = leagueById(data.clubId);
 
   const handleSignOut = async () => {

@@ -100,6 +100,20 @@ export const createCareer = mutation({
     managerNat: v.string(),
     clubId: v.string(),
     lang: v.optional(v.union(v.literal("en"), v.literal("fa"))),
+    custom: v.optional(
+      v.object({
+        name: v.string(),
+        short: v.string(),
+        country: v.string(),
+        p1: v.string(),
+        p2: v.string(),
+        stadium: v.string(),
+        capacity: v.number(),
+        tier: v.number(),
+        academy: v.number(),
+        board: v.number(),
+      }),
+    ),
   },
   handler: async (ctx, args) => {
     const user = await getCurrentUser(ctx);
@@ -110,7 +124,7 @@ export const createCareer = mutation({
       .collect();
     for (const doc of existing) await ctx.db.delete(doc._id);
     const seed = Math.floor(Math.random() * 2 ** 31);
-    const save = createCareerData({ seed, managerName: args.managerName.trim() || "Manager", managerNat: args.managerNat, clubId: args.clubId, lang: args.lang ?? "en" });
+    const save = createCareerData({ seed, managerName: args.managerName.trim() || "Manager", managerNat: args.managerNat, clubId: args.clubId, lang: args.lang ?? "en", custom: args.custom });
     const id = await ctx.db.insert("saves", {
       userId: user._id,
       data: save,

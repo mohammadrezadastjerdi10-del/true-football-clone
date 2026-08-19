@@ -88,6 +88,14 @@ export function OverviewTab({
             background: `linear-gradient(135deg, ${club.p1}33 0%, transparent 55%), radial-gradient(700px 240px at 85% -20%, oklch(0.5 0.13 155 / 0.25), transparent)`,
           }}
         />
+        {/* Pitch-pattern decoration */}
+        <svg className="pointer-events-none absolute inset-0 -z-[5] h-full w-full opacity-[0.06]" viewBox="0 0 400 120" preserveAspectRatio="none">
+          <rect x="10" y="10" width="380" height="100" rx="4" fill="none" stroke="white" strokeWidth="1" />
+          <line x1="200" y1="10" x2="200" y2="110" stroke="white" strokeWidth="0.5" />
+          <circle cx="200" cy="60" r="20" fill="none" stroke="white" strokeWidth="0.5" />
+          <rect x="10" y="35" width="40" height="50" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
+          <rect x="350" y="35" width="40" height="50" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
+        </svg>
         <div className="flex flex-wrap items-center justify-between gap-6 p-6 sm:p-8">
           <div className="flex items-center gap-4">
             <Crest club={club} size={64} />
@@ -338,10 +346,7 @@ export function OverviewTab({
                       </td>
                       <td className="px-2 py-2.5">
                         <span className="flex items-center gap-2">
-                          <span
-                            className="inline-block size-3.5 shrink-0 rounded"
-                            style={{ background: c.p1 }}
-                          />
+                          <Crest club={c} size={22} />
                           <span className={cn("font-medium", mine ? "text-foreground" : "text-muted-foreground")}>
                             {c.short}
                           </span>

@@ -174,7 +174,7 @@ export function MatchView({
       </div>
 
       {/* Scoreboard */}
-      <div className="overflow-hidden rounded-2xl border border-white/8 bg-card">
+      <div className="relative overflow-hidden rounded-2xl border border-white/8 bg-card">
         <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
           <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
             {playing && !match.ended && !atHt && <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />}
@@ -195,7 +195,15 @@ export function MatchView({
           </div>
         </div>
 
-        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-8">
+        {/* Pitch-pattern background for scoreboard */}
+        <svg className="pointer-events-none absolute inset-0 -z-0 h-full w-full opacity-[0.04]" viewBox="0 0 400 120" preserveAspectRatio="none">
+          <rect x="10" y="5" width="380" height="110" rx="3" fill="none" stroke="white" strokeWidth="0.8" />
+          <line x1="200" y1="5" x2="200" y2="115" stroke="white" strokeWidth="0.5" />
+          <circle cx="200" cy="60" r="18" fill="none" stroke="white" strokeWidth="0.5" />
+          <rect x="10" y="30" width="35" height="60" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
+          <rect x="355" y="30" width="35" height="60" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
+        </svg>
+        <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-8">
           <TeamScore club={clubDefOf(save, mySide.id)} goals={myGoals} highlight />
           <div className="text-center">
             <div className="font-mono text-5xl font-bold tabular-nums tracking-tight">

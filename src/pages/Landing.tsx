@@ -263,10 +263,10 @@ export default function Landing() {
       <section className="border-y border-white/5 bg-white/[0.02]">
         <div className="mx-auto grid max-w-6xl grid-cols-2 gap-px px-6 py-12 sm:grid-cols-4">
           {[
-            [num(lang, 18), t("lp.statLeagues")],
-            [num(lang, 216), t("lp.statClubs")],
+            [num(lang, 33), t("lp.statLeagues")],
+            [num(lang, 396), t("lp.statClubs")],
             [num(lang, 2), t("lp.statTrophies")],
-            [num(lang, 26), t("lp.statWeeks")],
+            [num(lang, 27), t("lp.statWeeks")],
           ].map(([value, label], i) => (
             <motion.div
               key={label}

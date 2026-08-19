@@ -1,13 +1,5 @@
 import { BrandWordmark } from "@/components/BrandMark";
 import { CareerStart } from "@/components/game/CareerStart";
-import { ClubTab } from "@/components/game/ClubTab";
-import { MatchView } from "@/components/game/MatchView";
-import { OverviewTab } from "@/components/game/OverviewTab";
-import { ScoutingTab } from "@/components/game/ScoutingTab";
-import { SquadTab } from "@/components/game/SquadTab";
-import { TacticsTab } from "@/components/game/TacticsTab";
-import { TrainingTab } from "@/components/game/TrainingTab";
-import { TransfersTab } from "@/components/game/TransfersTab";
 import { Crest } from "@/components/game/shared";
 import { Button } from "@/components/ui/button";
 import { useSave } from "@/hooks/use-save";
@@ -28,9 +20,20 @@ import {
   SlidersHorizontal,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useNavigate } from "react-router";
 import { cn } from "@/lib/utils";
+
+// Lazy-load tab components — each is a large chunk with game engine dependencies.
+// This splits them into separate bundles that only load when the user clicks the tab.
+const OverviewTab = lazy(() => import("@/components/game/OverviewTab").then(m => ({ default: m.OverviewTab })));
+const SquadTab = lazy(() => import("@/components/game/SquadTab").then(m => ({ default: m.SquadTab })));
+const TacticsTab = lazy(() => import("@/components/game/TacticsTab").then(m => ({ default: m.TacticsTab })));
+const TrainingTab = lazy(() => import("@/components/game/TrainingTab").then(m => ({ default: m.TrainingTab })));
+const ScoutingTab = lazy(() => import("@/components/game/ScoutingTab").then(m => ({ default: m.ScoutingTab })));
+const TransfersTab = lazy(() => import("@/components/game/TransfersTab").then(m => ({ default: m.TransfersTab })));
+const ClubTab = lazy(() => import("@/components/game/ClubTab").then(m => ({ default: m.ClubTab })));
+const MatchView = lazy(() => import("@/components/game/MatchView").then(m => ({ default: m.MatchView })));
 
 type TabId = "overview" | "squad" | "tactics" | "training" | "scouting" | "transfers" | "club";
 
@@ -43,6 +46,17 @@ const TABS: { id: TabId; labelKey: string; icon: typeof Home }[] = [
   { id: "transfers", labelKey: "nav.transfers", icon: ArrowLeftRight },
   { id: "club", labelKey: "nav.club", icon: Building2 },
 ];
+
+/** Skeleton placeholder while a tab chunk loads */
+function TabSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      <div className="h-32 rounded-2xl bg-white/[0.04]" />
+      <div className="h-48 rounded-2xl bg-white/[0.04]" />
+      <div className="h-24 rounded-2xl bg-white/[0.04]" />
+    </div>
+  );
+}
 
 export default function Dashboard() {
   const { save, isLoading } = useSave();
@@ -160,27 +174,29 @@ export default function Dashboard() {
 
       {/* Content */}
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        {matchEv ? (
-          <MatchView
-            save={data}
-            ev={matchEv}
-            onClose={() => setMatchEv(null)}
-          />
-        ) : tab === "overview" ? (
-          <OverviewTab save={data} onPlayMatch={setMatchEv} />
-        ) : tab === "squad" ? (
-          <SquadTab save={data} />
-        ) : tab === "tactics" ? (
-          <TacticsTab save={data} />
-        ) : tab === "training" ? (
-          <TrainingTab save={data} />
-        ) : tab === "scouting" ? (
-          <ScoutingTab save={data} />
-        ) : tab === "transfers" ? (
-          <TransfersTab save={data} />
-        ) : (
-          <ClubTab save={data} />
-        )}
+        <Suspense fallback={<TabSkeleton />}>
+          {matchEv ? (
+            <MatchView
+              save={data}
+              ev={matchEv}
+              onClose={() => setMatchEv(null)}
+            />
+          ) : tab === "overview" ? (
+            <OverviewTab save={data} onPlayMatch={setMatchEv} />
+          ) : tab === "squad" ? (
+            <SquadTab save={data} />
+          ) : tab === "tactics" ? (
+            <TacticsTab save={data} />
+          ) : tab === "training" ? (
+            <TrainingTab save={data} />
+          ) : tab === "scouting" ? (
+            <ScoutingTab save={data} />
+          ) : tab === "transfers" ? (
+            <TransfersTab save={data} />
+          ) : (
+            <ClubTab save={data} />
+          )}
+        </Suspense>
       </main>
     </div>
   );

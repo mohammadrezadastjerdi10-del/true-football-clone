@@ -6,6 +6,7 @@ import { formLetters, formTone, fmtMoney } from "@/lib/game/format";
 import { num, useLang } from "@/lib/i18n";
 import { Badge } from "@/components/ui/badge";
 
+/** Premium SVG shield-shaped club crest with initials */
 export function Crest({
   club,
   size = 44,
@@ -15,21 +16,55 @@ export function Crest({
   size?: number;
   className?: string;
 }) {
+  const initials = club.short.slice(0, 3);
+  // Stable gradient ID based on club + size to avoid SVG ID collisions
+  const gradId = `cg-${club.id.replace(/[^a-z0-9]/gi, "")}-${size}`;
   return (
     <span
-      className={cn(
-        "inline-flex shrink-0 items-center justify-center rounded-xl font-black tracking-tight ring-1 ring-white/10",
-        className,
-      )}
-      style={{
-        width: size,
-        height: size,
-        background: club.p1,
-        color: club.p2,
-        fontSize: size * 0.28,
-      }}
+      className={cn("inline-flex shrink-0 items-center justify-center", className)}
+      style={{ width: size, height: (size * 46) / 40 }}
     >
-      {club.short.slice(0, 3)}
+      <svg viewBox="0 0 40 46" width={size} height={(size * 46) / 40} className="drop-shadow-lg">
+        {/* Shield body */}
+        <path
+          d="M20 2 L37 9 L37 26 Q37 38 20 44 Q3 38 3 26 L3 9 Z"
+          fill={club.p1}
+          stroke="rgba(255,255,255,0.25)"
+          strokeWidth="0.6"
+        />
+        {/* Inner glow gradient for premium feel */}
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="rgba(255,255,255,0.18)" />
+            <stop offset="50%" stopColor="rgba(255,255,255,0.0)" />
+            <stop offset="100%" stopColor="rgba(0,0,0,0.25)" />
+          </linearGradient>
+        </defs>
+        <path
+          d="M20 2 L37 9 L37 26 Q37 38 20 44 Q3 38 3 26 L3 9 Z"
+          fill={`url(#${gradId})`}
+        />
+        {/* Highlight line across top for depth */}
+        <path
+          d="M8 10 L32 10"
+          stroke="rgba(255,255,255,0.1)"
+          strokeWidth="0.3"
+          fill="none"
+        />
+        {/* Initials text */}
+        <text
+          x="20"
+          y="27"
+          textAnchor="middle"
+          fontFamily="'Inter', system-ui, sans-serif"
+          fontWeight="900"
+          fontSize="12.5"
+          fill={club.p2}
+          style={{ filter: "drop-shadow(0 1px 1px rgba(0,0,0,0.3))" }}
+        >
+          {initials}
+        </text>
+      </svg>
     </span>
   );
 }

@@ -115,7 +115,7 @@ export function TacticsTab({ save }: { save: SaveData }) {
           const value = s.key === "mentality" ? mentality : s.key === "pressing" ? pressing : s.key === "passing" ? passing : tempo;
           const set = s.key === "mentality" ? setMentality : s.key === "pressing" ? setPressing : s.key === "passing" ? setPassing : setTempo;
           return (
-            <div key={s.key} className="rounded-2xl border border-white/8 bg-card p-5">
+            <div key={s.key} dir="ltr" className="rounded-2xl border border-white/8 bg-card p-5">
               <div className="mb-4 flex items-center justify-between">
                 <p className="text-sm font-semibold tracking-tight">{t(s.labelKey)}</p>
                 <span className="font-mono text-sm font-bold tabular-nums text-emerald-400">{num(lang, value)}</span>

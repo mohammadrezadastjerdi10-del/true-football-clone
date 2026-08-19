@@ -39,6 +39,11 @@ export const COUNTRIES: CountryDef[] = [
   { id: "cze", name: "Czechia", flag: "🇨🇿" },
   { id: "rou", name: "Romania", flag: "🇷🇴" },
   { id: "hun", name: "Hungary", flag: "🇭🇺" },
+  { id: "sau", name: "Saudi Arabia", flag: "🇸🇦" },
+  { id: "uae", name: "United Arab Emirates", flag: "🇦🇪" },
+  { id: "qat", name: "Qatar", flag: "🇶🇦" },
+  { id: "irn", name: "Iran", flag: "🇮🇷" },
+  { id: "egy", name: "Egypt", flag: "🇪🇬" },
 ];
 
 // Additional nationalities used for the transfer market and squad variety.
@@ -676,6 +681,106 @@ export const LEAGUES: LeagueDef[] = [
       ["gimcheon", "Gimcheon Sangmu", "GIM", "#C8102E", "#FFFFFF", "Gimcheon Stadium", 4]
     ]),
   },
+  {
+    id: "sau",
+    name: "Saudi Pro League",
+    countryId: "sau",
+    flag: "🇸🇦",
+    clubs: buildClubs("sau", "sau", [
+      ["al-hilal", "Al-Hilal", "HIL", "#0067B1", "#FFFFFF", "Kingdom Arena", 1],
+      ["al-nassr", "Al-Nassr", "NSR", "#FFD700", "#0067B1", "Al-Awwal Park", 1],
+      ["al-ittihad", "Al-Ittihad", "ITT", "#000000", "#FFD700", "King Abdullah Sports City", 1],
+      ["al-ahli", "Al-Ahli", "AHL", "#00843D", "#FFFFFF", "King Abdullah Sports City", 1],
+      ["al-shabab", "Al-Shabab", "SHB", "#F5F5F5", "#000000", "Al-Shabab Club Stadium", 2],
+      ["al-taawoun", "Al-Taawoun", "TAW", "#FFD700", "#000000", "King Abdullah Sport City", 2],
+      ["al-ettifaq", "Al-Ettifaq", "ETT", "#00843D", "#FFFFFF", "Prince Mohamed bin Fahd", 2],
+      ["al-fateh", "Al-Fateh", "FAT", "#00843D", "#FFFFFF", "Prince Abdullah bin Jalawi", 3],
+      ["damac", "Damac", "DAM", "#C8102E", "#FFFFFF", "Prince Sultan bin Abdul Aziz", 3],
+      ["al-khaleej", "Al-Khaleej", "KHL", "#0067B1", "#FFFFFF", "Prince Mohamed bin Fahd", 3],
+      ["al-raed", "Al-Raed", "RAE", "#C8102E", "#FFFFFF", "King Abdullah Sport City", 4],
+      ["al-okhdood", "Al-Okhdood", "OKH", "#00843D", "#FFFFFF", "Prince Hathloul", 4]
+    ]),
+  },
+  {
+    id: "uae",
+    name: "UAE Pro League",
+    countryId: "uae",
+    flag: "🇦🇪",
+    clubs: buildClubs("uae", "uae", [
+      ["al-ain", "Al Ain", "AIN", "#5B2D8E", "#FFFFFF", "Hazza bin Zayed", 1],
+      ["shabab-al-ahli", "Shabab Al-Ahli", "SAA", "#00843D", "#FFFFFF", "Rashid Stadium", 1],
+      ["al-jazira", "Al Jazira", "JAZ", "#C8102E", "#FFFFFF", "Mohammed bin Zayed", 1],
+      ["al-wahda", "Al Wahda", "WAH", "#F5F5F5", "#000000", "Al Nahyan Stadium", 2],
+      ["al-nasr", "Al Nasr", "NAS", "#0067B1", "#FFFFFF", "Al Maktoum Stadium", 2],
+      ["sharjah", "Sharjah", "SHA", "#C8102E", "#FFFFFF", "Sharjah Stadium", 2],
+      ["baniyas", "Baniyas", "BAN", "#0067B1", "#FFFFFF", "Baniyas Stadium", 3],
+      ["ajman", "Ajman", "AJM", "#00843D", "#FFFFFF", "Ajman Stadium", 3],
+      ["al-bataeh", "Al Bataeh", "BAT", "#FFD700", "#000000", "Al Bataeh Stadium", 3],
+      ["kalba", "Ittihad Kalba", "KAL", "#C8102E", "#FFFFFF", "Ittihad Kalba Stadium", 3],
+      ["khorfakkan", "Khor Fakkan", "KHF", "#0067B1", "#FFFFFF", "Saqr Stadium", 4],
+      ["dibba", "Dibba Al-Fujairah", "DIB", "#FFD700", "#000000", "Dibba Stadium", 4]
+    ]),
+  },
+  {
+    id: "qat",
+    name: "Qatar Stars League",
+    countryId: "qat",
+    flag: "🇶🇦",
+    clubs: buildClubs("qat", "qat", [
+      ["al-sadd", "Al Sadd", "SAD", "#000000", "#FFFFFF", "Jassim bin Hamad", 1],
+      ["al-duhail", "Al Duhail", "DUH", "#C8102E", "#FFFFFF", "Abdullah bin Khalifa", 1],
+      ["al-rayyan", "Al Rayyan", "RAY", "#000000", "#FFFFFF", "Ahmed bin Ali", 1],
+      ["al-gharafa", "Al Gharafa", "GHA", "#0067B1", "#FFFFFF", "Thani bin Jassim", 2],
+      ["al-arabi", "Al Arabi", "ARB", "#C8102E", "#FFFFFF", "Grand Hamad", 2],
+      ["al-wakrah", "Al Wakrah", "WAK", "#0067B1", "#FFFFFF", "Al Janoub", 2],
+      ["umm-salal", "Umm Salal", "UMS", "#00843D", "#FFFFFF", "Thani bin Jassim", 3],
+      ["qatar-sc", "Qatar SC", "QSC", "#C8102E", "#FFFFFF", "Suhaim bin Hamad", 3],
+      ["al-ahli", "Al Ahli", "AHL", "#FFD700", "#000000", "Hamad bin Khalifa", 3],
+      ["al-shamal", "Al Shamal", "SHM", "#00843D", "#FFFFFF", "Al Bayt", 4],
+      ["al-markhiya", "Al Markhiya", "MAR", "#0067B1", "#FFFFFF", "Al Markhiya Stadium", 4],
+      ["muaither", "Muaither", "MUA", "#C8102E", "#FFFFFF", "Thani bin Jassim", 4]
+    ]),
+  },
+  {
+    id: "irn",
+    name: "Persian Gulf Pro League",
+    countryId: "irn",
+    flag: "🇮🇷",
+    clubs: buildClubs("irn", "irn", [
+      ["persepolis", "Persepolis", "PER", "#C8102E", "#FFFFFF", "Azadi Stadium", 1],
+      ["esteghlal", "Esteghlal", "EST", "#0067B1", "#FFFFFF", "Azadi Stadium", 1],
+      ["sepahan", "Sepahan", "SEP", "#FFD700", "#000000", "Naghsh-e Jahan", 1],
+      ["tractor", "Tractor", "TRA", "#C8102E", "#FFFFFF", "Yadegar-e Emam", 1],
+      ["foolad", "Foolad", "FOO", "#C8102E", "#FFFFFF", "Foolad Arena", 2],
+      ["gol-gohar", "Gol Gohar", "GOL", "#00843D", "#FFFFFF", "Sirjan Arena", 2],
+      ["malavan", "Malavan", "MAL", "#0067B1", "#FFFFFF", "Dr. Azodi", 2],
+      ["zob-ahan", "Zob Ahan", "ZOB", "#00843D", "#FFFFFF", "Foolad Shahr", 3],
+      ["havadar", "Havadar", "HAV", "#0067B1", "#FFFFFF", "PAS Ghavamin", 3],
+      ["nassaji", "Nassaji Mazandaran", "NAS", "#00843D", "#FFFFFF", "Vatani", 3],
+      ["aluminium", "Aluminium Arak", "ALU", "#FFD700", "#000000", "Imam Khomeini", 3],
+      ["mes-rafsanjan", "Mes Rafsanjan", "MES", "#00843D", "#FFFFFF", "Shohadaye Mes", 4]
+    ]),
+  },
+  {
+    id: "egy",
+    name: "Egyptian Premier League",
+    countryId: "egy",
+    flag: "🇪🇬",
+    clubs: buildClubs("egy", "egy", [
+      ["al-ahly", "Al Ahly", "AHL", "#C8102E", "#FFFFFF", "Cairo International Stadium", 1],
+      ["zamalek", "Zamalek", "ZAM", "#F5F5F5", "#C8102E", "Cairo International Stadium", 1],
+      ["pyramids", "Pyramids", "PYR", "#0067B1", "#FFFFFF", "30 June Stadium", 1],
+      ["al-masry", "Al Masry", "MAS", "#00843D", "#FFFFFF", "Borg El Arab", 2],
+      ["ceramica", "Ceramica Cleopatra", "CER", "#FFD700", "#000000", "Osman Ahmed Osman", 2],
+      ["ismaily", "Ismaily", "ISM", "#FFD700", "#000000", "Ismailia Stadium", 2],
+      ["smouha", "Smouha", "SMO", "#0067B1", "#FFFFFF", "Borg El Arab", 3],
+      ["enppi", "ENPPI", "ENP", "#00843D", "#FFFFFF", "Petrosport", 3],
+      ["future", "Future", "FUT", "#0067B1", "#FFFFFF", "Al Salam Stadium", 3],
+      ["mokawloon", "Al Mokawloon", "MOK", "#C8102E", "#FFFFFF", "Osman Ahmed Osman", 3],
+      ["pharco", "Pharco", "PHA", "#0067B1", "#FFFFFF", "Borg El Arab", 4],
+      ["national-bank", "National Bank", "NBE", "#FFD700", "#000000", "Police Academy Stadium", 4]
+    ]),
+  },
 ];
 
 export function leagueById(id: string): LeagueDef {
@@ -788,6 +893,9 @@ export const NAME_POOLS: Record<string, { f: string[]; l: string[] }> = {
   rou: { f: ["Nicolae", "Răzvan", "Dennis", "Ianis", "Vlad", "Florin", "Andrei", "Alexandru", "George", "Marius", "Bogdan", "Valentin", "Claudiu", "Cristian", "Radu"], l: ["Stanciu", "Marin", "Man", "Hagi", "Drăgușin", "Coman", "Rațiu", "Cicaldău", "Pușcaș", "Tănase", "Mihăilă", "Mogoș", "Burlacu", "Alibec", "Drăguș"] },
   hun: { f: ["Dominik", "Péter", "Roland", "Márton", "Attila", "Balázs", "Ádám", "Zsolt", "László", "Milos", "Kevin", "Bendegúz", "Barnabás", "Dávid", "Tamás"], l: ["Szoboszlai", "Gulácsi", "Sallai", "Dárdai", "Fiola", "Dzsudzsák", "Szalai", "Nagy", "Kleinheisler", "Kerkez", "Csoboth", "Bolla", "Varga", "Schäfer", "Kádár"] },
   can: { f: ["Alphonso", "Jonathan", "Tajon", "Cyle", "Stephen", "Liam", "Ismaël", "Dayne", "Samuel", "Lucas", "Mathieu", "Maxime", "Joel", "Richie", "Mark-Anthony"], l: ["Davies", "David", "Buchanan", "Larin", "Eustáquio", "Millar", "Koné", "St. Clair", "Adekugbe", "Cavallini", "Choinière", "Crèpeau", "Waterman", "Laryea", "Kaye"] },
+  sau: { f: ["Mohammed", "Salem", "Firas", "Musab", "Abdulelah", "Saleh", "Abdullah", "Nawaf", "Hassan", "Saud", "Ali", "Sultan", "Abdulrahman", "Fahad", "Turki"], l: ["Al-Dawsari", "Al-Buraikan", "Kanno", "Al-Khaibari", "Al-Owais", "Al-Shahrani", "Al-Ghannam", "Al-Najei", "Al-Amri", "Al-Hamdan", "Al-Qahtani", "Al-Faraj", "Al-Muwallad", "Al-Shehri", "Al-Otaibi"] },
+  uae: { f: ["Ali", "Omar", "Abdullah", "Khalil", "Fahad", "Mohamed", "Tariq", "Majid", "Sultan", "Hamdan", "Yahya", "Zayed", "Khaled", "Yousif", "Salem"], l: ["Mabkhout", "Al Hammadi", "Al Zaabi", "Al Attas", "Ramadan", "Al Baloushi", "Al Ahbabi", "Salmeen", "Ibrahim", "Al Ghassani", "Al Menhali", "Suhail", "Al Naqbi", "Ali", "Juma"] },
+  qat: { f: ["Akram", "Abdulaziz", "Hassan", "Mohammed", "Almoez", "Bassam", "Tarek", "Ahmed", "Khalid", "Jassim", "Saad", "Ali", "Abdulla", "Homam", "Youssef"], l: ["Afif", "Al-Haydos", "Khoukhi", "Madibo", "Al-Brake", "Al-Muhannadi", "Hatem", "Fatehi", "Al-Ali", "Al-Rawi", "Al-Sheeb", "Boudiaf", "Al-Rawi", "Ahmed", "Meshaal"] },
 };
 
 // ---------------------------------------------------------------------------

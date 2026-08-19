@@ -369,7 +369,7 @@ function currentAtt(m: LiveMatch, t: 0 | 1): number {
     total += attackRating(s.p) * playerFitness(s.p);
   }
   const n = Math.max(1, players.length);
-  return (total / n) * talkStrengthMod(side, m.half) * (0.88 + side.tactics.mentality * 0.0022);
+  return (total / n) * talkStrengthMod(side, m.half) * (0.82 + side.tactics.mentality * 0.003);
 }
 
 function currentDef(m: LiveMatch, t: 0 | 1): number {
@@ -381,7 +381,7 @@ function currentDef(m: LiveMatch, t: 0 | 1): number {
     total += defenceRating(s.p) * playerFitness(s.p);
   }
   const n = Math.max(1, players.length);
-  return (total / n) * talkStrengthMod(side, m.half) * (1.12 - side.tactics.mentality * 0.0022);
+  return (total / n) * talkStrengthMod(side, m.half) * (1.18 - side.tactics.mentality * 0.003);
 }
 
 function currentMid(m: LiveMatch, t: 0 | 1): number {
@@ -494,6 +494,7 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     const mid1 = currentMid(m, 1);
     let p0 = 0.5 + (mid0 - mid1) * 0.02 + m.teams[0].momentum * 0.004 - m.teams[1].momentum * 0.004;
     p0 += (m.home.tactics.passing - m.away.tactics.passing) * 0.0004;
+    p0 += (m.home.tactics.mentality - m.away.tactics.mentality) * 0.0006;
     p0 = Math.min(0.78, Math.max(0.22, p0));
     const attacker: 0 | 1 = m.rng.next() < p0 ? 0 : 1;
     const defender = (1 - attacker) as 0 | 1;
@@ -512,7 +513,7 @@ export function stepMatch(m: LiveMatch, minutes: number): LiveMatch {
     // Chance probability this minute
     const tempoF = 0.5 + (sideA.tactics.tempo + sideD.tactics.tempo) / 200;
     let chanceP = (0.09 + Math.max(0, aAtt - dDef) * 0.0022) * tempoF;
-    chanceP *= 1 + (sideA.tactics.mentality - 50) * 0.001;
+    chanceP *= 1 + (sideA.tactics.mentality - 50) * 0.003;
 
     if (m.rng.chance(chanceP)) {
       // Pick shooter — weighted toward forwards and attacking mids

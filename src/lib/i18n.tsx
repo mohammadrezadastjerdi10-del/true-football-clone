@@ -100,7 +100,7 @@ const DICT: Dict = {
   "ov.skipToMatch": { en: "Skip to next match", fa: "پرش به مسابقه بعدی" },
   "ov.skipDone": { en: "Skipped {n} training weeks — the next match is ready.", fa: "{n} هفته تمرینی رد شد — مسابقه بعدی آماده است." },
   "ov.calendar": { en: "Season calendar", fa: "تقویم فصل" },
-  "ov.calendarSub": { en: "The full 26-week campaign at a glance", fa: "کل ۲۶ هفته فصل در یک نگاه" },
+  "ov.calendarSub": { en: "The full 27-week campaign at a glance", fa: "کل ۲۷ هفته فصل در یک نگاه" },
   "ov.calWeek": { en: "Week {w}", fa: "هفته {w}" },
   "ov.calMatchday": { en: "Matchday {r}", fa: "هفته {r} لیگ" },
   "ov.calCup": { en: "Cup · {round}", fa: "جام · {round}" },

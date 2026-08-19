@@ -56,15 +56,15 @@ export function leagueOf(clubId: string): import("./world").LeagueDef {
 }
 
 export const LEAGUE_SIZE = 12;
-export const SEASON_WEEKS = 27; // weeks 1-26 are match weeks, 27 = season end
+export const SEASON_WEEKS = 27; // 27 match weeks: 22 league rounds, 4 cup rounds, 1 winter break
 export const TOTAL_ROUNDS = (LEAGUE_SIZE - 1) * 2;
 
 // week (1-26) -> league round (0 = cup week)
 export const LEAGUE_ROUND_AT_WEEK: number[] = [
-  1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 0, 10, 11, 12, 13, 14, 15, 16, 0, 17, 18, 19, 20, 21, 22,
+  1, 2, 3, 0, 4, 5, 6, 0, 7, 8, 9, 10, 0, 0, 11, 12, 13, 14, 15, 0, 16, 17, 18, 19, 20, 21, 22,
 ];
 // week (1-26) -> cup round (0 = no cup)
-export const CUP_ROUND_AT_WEEK: number[] = [0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0];
+export const CUP_ROUND_AT_WEEK: number[] = [0, 0, 0, 1, 0, 0, 0, 2, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0];
 
 export const CUP_ROUND_NAMES = ["First round", "Quarter-final", "Semi-final", "Final"];
 export const CUP_ROUND_SHORT = ["R1", "QF", "SF", "F"];
@@ -79,27 +79,35 @@ export const STADIUM_LEVELS = [
 ];
 
 export const SPONSOR_LEVELS = [
-  { weekly: 150_000, cost: 0, name: "Local Partner" },
+  { weekly: 250_000, cost: 0, name: "Local Partner" },
   { weekly: 350_000, cost: 2_500_000, name: "Regional Brand" },
   { weekly: 700_000, cost: 7_000_000, name: "National Brand" },
   { weekly: 1_200_000, cost: 16_000_000, name: "Continental Brand" },
   { weekly: 1_900_000, cost: 35_000_000, name: "Global Giant" },
 ];
 
-export const PRIZE_MONEY = [8_000_000, 5_500_000, 4_000_000, 3_200_000, 2_600_000, 2_200_000, 1_800_000, 1_500_000, 1_200_000, 1_000_000, 800_000, 600_000];
+export const PRIZE_MONEY = [9_000_000, 6_000_000, 4_500_000, 3_500_000, 2_800_000, 2_400_000, 2_000_000, 1_600_000, 1_300_000, 1_100_000, 900_000, 700_000];
+
+// League wealth multiplier on prize money (richer leagues pay out more).
+const LEAGUE_WEALTH: Record<string, number> = {
+  eng: 2.0, esp: 1.9, ita: 1.8, ger: 1.8, fra: 1.6, sau: 1.5, usa: 1.3, jpn: 1.2,
+  por: 1.1, ned: 1.1, bel: 1.0, tur: 1.0, bra: 1.0, arg: 0.9, mex: 0.9, sui: 0.9,
+  aut: 0.85, cze: 0.85, ukr: 0.8, swe: 0.8, den: 0.8, nor: 0.75, rou: 0.75, hun: 0.7,
+  cro: 0.7, gre: 0.7, pol: 0.7, sco: 0.7, qat: 1.1, uae: 1.0, egy: 0.6, irn: 0.5,
+};
 export const CUP_PRIZE = 1_500_000;
 
 // Scouting: duration (weeks) -> cost. Faster reports cost more.
 export const SCOUT_DURATIONS = [1, 2, 3] as const;
 export const SCOUT_COSTS: Record<(typeof SCOUT_DURATIONS)[number], number> = {
-  1: 500_000,
-  2: 300_000,
-  3: 200_000,
+  1: 50_000,
+  2: 30_000,
+  3: 20_000,
 };
 export const MAX_ACTIVE_SCOUTS = 3;
 
 const TIER_OVR = [86, 81, 77, 73];
-const TIER_BUDGET = [80_000_000, 45_000_000, 25_000_000, 15_000_000];
+const TIER_BUDGET = [120_000_000, 60_000_000, 28_000_000, 12_000_000];
 const TIER_POPULARITY = [72000, 46000, 31000, 22000];
 
 export const FOCUS_ATTRS: Record<FocusKey, (keyof PlayerAttrs)[]> = {
@@ -178,8 +186,25 @@ export function playerValue(ovr: number, age: number): number {
   return Math.round(base * ageF / 10000) * 10000;
 }
 
+export function marketAsking(p: { ovr: number; age: number; pot?: number; pos: Pos }): number {
+  // Deterministic, information-based asking price: base value, then a
+  // premium for young players with real potential and a premium/discount by
+  // position (forwards cost more, keepers and defenders less).
+  let v = playerValue(p.ovr, p.age);
+  const young = p.age <= 22;
+  if (young && p.pot && p.pot > p.ovr + 3) v *= 1.3;
+  if (p.age >= 30) v *= p.age >= 33 ? 0.7 : 0.85;
+  if (p.pos === "FW") v *= 1.08;
+  else if (p.pos === "GK") v *= 0.92;
+  else if (p.pos === "DF") v *= 0.95;
+  return Math.round(v / 100_000) * 100_000;
+}
+
 export function wageFor(ovr: number): number {
-  const w = Math.pow(Math.max(0, ovr - 45), 2.4) * 130;
+  // Weekly wage in EUR, scaled to the game's revenue model: backups a few K,
+  // squad regulars tens of K, elite stars ~35K. Keeps the wage bill inside
+  // what sponsorship + matchday + prize money can actually sustain.
+  const w = Math.pow(Math.max(0, ovr - 45), 2.6) * 2.2;
   return Math.max(1500, Math.round(w / 500) * 500);
 }
 
@@ -490,7 +515,7 @@ export function generateMarket(rng: Rng): MarketPlayer[] {
       ovr,
       val: p.val,
       wage: wageFor(ovr),
-      asking: Math.round((p.val * rng.range(0.92, 1.3)) / 10000) * 10000,
+      asking: marketAsking({ ovr, age, pot: p.pot, pos }),
       morale: rng.int(50, 85),
       form: Math.round(rng.range(5.5, 8.6) * 10) / 10,
       known: false,
@@ -821,7 +846,7 @@ export function buildOpponentSide(save: SaveData, opponentClubId: string, seed: 
 
 export function nextEvent(save: SaveData): NextEvent {
   const week = save.week + 1;
-  if (week > 26) {
+  if (week > 27) {
     return { type: "season_end", round: 0, week, fixture: null };
   }
   const cupRound = CUP_ROUND_AT_WEEK[week - 1];
@@ -967,6 +992,15 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
   let cupAdvanced = false; // the user survived a drawn cup tie on penalties
   if (m.kind === "league") {
     recordLeagueMatch(save, m.round, m.home, m.away, m.hg, m.ag);
+    // Simulate every other tie in the same round so the whole matchday
+    // resolves together and the table stays in sync with reality.
+    for (const f of save.league.fixtures) {
+      if (f.round !== m.round || f.played) continue;
+      const hStr = tierStrengthOf(f.home, save);
+      const aStr = tierStrengthOf(f.away, save);
+      const res = quickSim(hStr, aStr, hashSeed("leaguematch", f.home, f.away, m.round, save.seed, save.week + 1));
+      recordLeagueMatch(save, m.round, f.home, f.away, res.hg, res.ag);
+    }
   } else {
     const roundIdx = m.round - 1;
     const fixtures = save.cup.rounds[roundIdx] ?? [];
@@ -1194,7 +1228,7 @@ export function applyMarketWeek(save: SaveData, rng: Rng) {
       ovr,
       val: p.val,
       wage: wageFor(ovr),
-      asking: Math.round((p.val * rng.range(0.9, 1.3)) / 10000) * 10000,
+      asking: marketAsking({ ovr, age, pot: p.pot, pos }),
       morale: rng.int(50, 85),
       form: Math.round(rng.range(5.5, 8.6) * 10) / 10,
       known: false,
@@ -1371,7 +1405,7 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
   const rng = new Rng(hashSeed("week", save.clubId, save.seed, save.week + 1));
   const week = save.week + 1;
 
-  if (week <= 26) {
+  if (week <= 27) {
     const cupRound = CUP_ROUND_AT_WEEK[week - 1];
     if (cupRound > 0 && !save.cup.done) {
       // simulate cup fixtures
@@ -1395,13 +1429,14 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
       if (winners.length) {
         // Round-1 byes join the winners for the next round.
         save.cup.alive = cupRound === 1 ? winners.concat(save.cup.byes || []) : winners;
-        if (cupRound >= 4 || winners.length <= 1) {
+        const alive = save.cup.alive;
+        if (cupRound >= 4 || alive.length <= 1) {
           save.cup.done = true;
-          save.cup.winner = winners[0];
-          addNews(save, "cup", L(save, `${clubDefOf(save, winners[0]).name} win the National Cup!`, `${clubDefOf(save, winners[0]).name} قهرمان جام حذفی شد!`));
+          save.cup.winner = alive[0];
+          addNews(save, "cup", L(save, `${clubDefOf(save, alive[0]).name} win the National Cup!`, `${clubDefOf(save, alive[0]).name} قهرمان جام حذفی شد!`));
         } else {
           save.cup.nextRound = cupRound + 1;
-          save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, week)), winners, cupRound + 1));
+          save.cup.rounds.push(drawCupNextRound(new Rng(hashSeed("cup", save.clubId, save.seed, week)), alive, cupRound + 1));
         }
       }
     } else {
@@ -1449,7 +1484,7 @@ export function skipToNextMatch(save: SaveData): { advanced: boolean; weeks: num
 export function completeWeek(save: SaveData, rng: Rng) {
   applyWeekly(save, rng);
   save.week += 1;
-  if (save.week > 26 && save.phase === "league") {
+  if (save.week > 27 && save.phase === "league") {
     endSeason(save);
   }
 }
@@ -1465,7 +1500,8 @@ function tierStrengthOf(clubId: string, save: SaveData): { att: number; def: num
 
 export function endSeason(save: SaveData) {
   const pos = positionOf(save);
-  const prize = PRIZE_MONEY[pos - 1] ?? 0;
+  const wealth = LEAGUE_WEALTH[leagueOf(save.clubId).id] ?? 1;
+  const prize = Math.round(((PRIZE_MONEY[pos - 1] ?? 0) * wealth) / 100000) * 100000;
   const cupPrize = save.cup.userWon ? CUP_PRIZE : 0;
   addFinance(save, prize + cupPrize, 0, `Prize money: ${ordinal(pos)} in league${cupPrize ? " + cup win" : ""}`);
   if (pos === 1) {
@@ -1639,7 +1675,7 @@ export function tickScouts(save: SaveData, rng: Rng) {
           ovr,
           val: p.val,
           wage: wageFor(ovr),
-          asking: Math.round((p.val * rng.range(0.85, 1.15)) / 10000) * 10000,
+          asking: marketAsking({ ovr, age, pot: p.pot, pos }),
           morale: rng.int(55, 85),
           form: Math.round(rng.range(5.8, 8.4) * 10) / 10,
           known: true,

@@ -84,9 +84,11 @@ export function MatchView({
     const id = setInterval(() => {
       setMatch((m) => {
         if (m.ended || (m.atHt && m.half === 1)) return m;
-        return stepMatch(m, speed);
+        // stepMatch mutates and returns the same reference; spread it so
+        // React re-renders every tick (score, clock and feed stay in sync).
+        return { ...stepMatch(m, 1) };
       });
-    }, 500);
+    }, 600 / speed);
     return () => clearInterval(id);
   }, [playing, speed, match.ended, atHt]);
   const talk = (t: 0 | 1 | 2) => {
@@ -326,7 +328,7 @@ export function MatchView({
                   <SkipForward className="size-3.5 rtl:rotate-180" /> {t(match.half === 1 ? "mv.toHalftime" : "mv.toFulltime")}
                 </Button>
               </div>
-              <div className="mt-5">
+              <div className="mt-5" dir="ltr">
                 <div className="mb-2 flex items-center justify-between text-xs">
                   <span className="font-medium text-muted-foreground">{t("mv.mentality")}</span>
                   <span className="font-mono tabular-nums text-emerald-400">{num(lang, mentality)}</span>

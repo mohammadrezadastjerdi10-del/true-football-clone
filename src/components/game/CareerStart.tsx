@@ -32,7 +32,7 @@ const COLOR_PRESETS = [
 ];
 
 const CAPACITIES = [5000, 12000, 24000, 40000];
-const TIER_BUDGETS = [80_000_000, 45_000_000, 25_000_000, 15_000_000];
+const TIER_BUDGETS = [120_000_000, 60_000_000, 28_000_000, 12_000_000];
 
 export function CareerStart() {
   const { createCareer } = useSave();

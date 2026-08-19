@@ -18,8 +18,8 @@ import type { NextEvent, SaveData, ScorerRec } from "@/lib/game/types";
 import { Crest, PosBadge } from "@/components/game/shared";
 import { cn } from "@/lib/utils";
 import { num, useLang } from "@/lib/i18n";
-import { ArrowLeft, CheckCircle2, Loader2, Play, SkipForward } from "lucide-react";
-import { useMemo, useState } from "react";
+import { ArrowLeft, CheckCircle2, Loader2, Pause, Play, SkipForward } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 interface SubRec {
@@ -58,6 +58,8 @@ export function MatchView({
   const [subTarget, setSubTarget] = useState<string | null>(null);
   const [mentality, setMentalityDraft] = useState(match.home.tactics.mentality);
   const [saving, setSaving] = useState(false);
+  const [playing, setPlaying] = useState(true);
+  const [speed, setSpeed] = useState(2);
 
   const mySide = userTeam === 0 ? match.home : match.away;
   const oppSide = userTeam === 0 ? match.away : match.home;
@@ -69,6 +71,24 @@ export function MatchView({
   };
 
   const atHt = match.atHt && match.half === 1;
+
+  // Auto-playing clock: simulated minutes advance on their own. The speed
+  // selector multiplies minutes per tick; the match pauses at half-time and
+  // full time so the manager can talk / confirm the result.
+  useEffect(() => {
+    if (!playing) return;
+    if (match.ended || atHt) {
+      setPlaying(false);
+      return;
+    }
+    const id = setInterval(() => {
+      setMatch((m) => {
+        if (m.ended || (m.atHt && m.half === 1)) return m;
+        return stepMatch(m, speed);
+      });
+    }, 500);
+    return () => clearInterval(id);
+  }, [playing, speed, match.ended, atHt]);
   const talk = (t: 0 | 1 | 2) => {
     setTeamTalk(match, userTeam, t);
     // The engine pauses at half-time; the caller is responsible for
@@ -154,7 +174,8 @@ export function MatchView({
       {/* Scoreboard */}
       <div className="overflow-hidden rounded-2xl border border-white/8 bg-card">
         <div className="flex items-center justify-between border-b border-white/5 px-6 py-3">
-          <div className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          <div className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            {playing && !match.ended && !atHt && <span className="size-1.5 animate-pulse rounded-full bg-emerald-400" />}
             {match.ended ? t("mv.fulltime") : atHt ? t("mv.halftime") : t("mv.live", { min: num(lang, match.minute) })}
           </div>
           <div className="flex gap-1.5">
@@ -262,15 +283,47 @@ export function MatchView({
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("mv.controlSub")}
               </p>
-              <div className="mt-4 flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant={playing ? "default" : "outline"}
+                    className="gap-1.5 rounded-lg"
+                    onClick={() => setPlaying((p) => !p)}
+                    disabled={match.ended || atHt}
+                  >
+                    {playing ? <Pause className="size-3.5" /> : <Play className="size-3.5" />}
+                    {playing ? t("mv.pause") : t("mv.play")}
+                  </Button>
+                  <div className="flex items-center gap-0.5 rounded-lg border border-white/10 p-0.5">
+                    {[1, 2, 4, 8].map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setSpeed(s)}
+                        className={cn(
+                          "rounded-md px-2 py-1 font-mono text-[11px] font-bold tabular-nums transition-colors",
+                          speed === s ? "bg-emerald-500/20 text-emerald-300" : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {s}x
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-[11px] leading-relaxed text-muted-foreground">
+                  {playing ? t("mv.autoPlayOn") : t("mv.autoPlayOff")}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(1)}>
-                  <Play className="size-3.5" /> {t("mv.min1")}
+                  <SkipForward className="size-3.5 rtl:rotate-180" /> {t("mv.min1")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(5)}>
-                  <SkipForward className="size-3.5" /> {t("mv.min5")}
+                  <SkipForward className="size-3.5 rtl:rotate-180" /> {t("mv.min5")}
                 </Button>
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(match.half === 1 ? 45 - match.minute : 90 - match.minute)}>
-                  <SkipForward className="size-3.5" /> {t(match.half === 1 ? "mv.toHalftime" : "mv.toFulltime")}
+                  <SkipForward className="size-3.5 rtl:rotate-180" /> {t(match.half === 1 ? "mv.toHalftime" : "mv.toFulltime")}
                 </Button>
               </div>
               <div className="mt-5">
@@ -303,7 +356,7 @@ export function MatchView({
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             {t("mv.commentary")}
           </p>
-          <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+          <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto pe-1">
             {match.events.length === 0 && (
               <li className="py-8 text-center text-sm text-muted-foreground">
                 {t("mv.emptyCommentary")}
@@ -313,7 +366,7 @@ export function MatchView({
               <li key={i} className="flex gap-3 text-sm leading-relaxed">
                 <span
                   className={cn(
-                    "mt-0.5 w-8 shrink-0 text-right font-mono text-xs tabular-nums",
+                    "mt-0.5 w-8 shrink-0 text-end font-mono text-xs tabular-nums",
                     e.type === "goal"
                       ? "font-bold text-emerald-400"
                       : e.type === "red"
@@ -351,7 +404,7 @@ export function MatchView({
                 type="button"
                 onClick={() => setSubTarget(match.ended ? null : subTarget === s.p.id ? null : s.p.id)}
                 className={cn(
-                  "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors",
+                  "flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-start text-sm transition-colors",
                   subTarget === s.p.id
                     ? "border-amber-400/50 bg-amber-400/10"
                     : "border-white/5 bg-white/[0.02] hover:border-white/15",
@@ -386,7 +439,7 @@ export function MatchView({
                 type="button"
                 disabled={match.ended || subs.length >= 3 || !subTarget}
                 onClick={() => doSub(s.p.id)}
-                className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-left text-sm transition-colors enabled:hover:border-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] px-3 py-2 text-start text-sm transition-colors enabled:hover:border-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 <PosBadge pos={s.p.pos} />
                 <span className="truncate font-medium">{s.p.name}</span>

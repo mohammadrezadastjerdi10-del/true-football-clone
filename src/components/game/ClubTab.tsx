@@ -147,7 +147,7 @@ export function ClubTab({ save }: { save: SaveData }) {
                   </p>
                 </div>
               </div>
-              <div className="text-right text-xs text-muted-foreground">
+              <div className="text-end text-xs text-muted-foreground">
                 {nextStadium ? (
                   <>
                     <p className="font-medium text-foreground">{t("tf.next", { name: nextStadium.name })}</p>
@@ -184,7 +184,7 @@ export function ClubTab({ save }: { save: SaveData }) {
                   </p>
                 </div>
               </div>
-              <div className="text-right text-xs text-muted-foreground">
+              <div className="text-end text-xs text-muted-foreground">
                 {nextSponsor ? (
                   <>
                     <p className="font-medium text-foreground">{t("tf.next", { name: nextSponsor.name })}</p>
@@ -216,12 +216,12 @@ export function ClubTab({ save }: { save: SaveData }) {
         <div className="mt-5 overflow-x-auto">
           <table className="w-full min-w-[520px] text-sm">
             <thead>
-              <tr className="text-left text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              <tr className="text-start text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 <th className="px-3 py-2.5">{t("cl.h.season")}</th>
                 <th className="px-3 py-2.5 text-center">{t("cl.h.pos")}</th>
                 <th className="px-3 py-2.5 text-center">{t("cl.h.cup")}</th>
                 <th className="px-3 py-2.5 text-center">{t("cl.h.trophies")}</th>
-                <th className="px-3 py-2.5 text-right">{t("cl.h.balance")}</th>
+                <th className="px-3 py-2.5 text-end">{t("cl.h.balance")}</th>
               </tr>
             </thead>
             <tbody>
@@ -248,7 +248,7 @@ export function ClubTab({ save }: { save: SaveData }) {
                       <span className="text-muted-foreground/50">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-right font-mono tabular-nums">{fmtMoney(h.balance)}</td>
+                  <td className="px-3 py-3 text-end font-mono tabular-nums">{fmtMoney(h.balance)}</td>
                 </tr>
               ))}
             </tbody>

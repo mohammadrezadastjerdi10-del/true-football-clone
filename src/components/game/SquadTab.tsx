@@ -48,7 +48,7 @@ export function SquadTab({ save }: { save: SaveData }) {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="text-left text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+              <tr className="text-start text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                 <th className="px-4 py-3">{t("sq.player")}</th>
                 <th className="px-3 py-3 text-center">{t("sq.pos")}</th>
                 <th className="px-3 py-3 text-center">{t("sq.ovr")}</th>
@@ -57,7 +57,7 @@ export function SquadTab({ save }: { save: SaveData }) {
                 <th className="hidden px-3 py-3 text-center md:table-cell">{t("sq.recent")}</th>
                 <th className="hidden px-3 py-3 text-center sm:table-cell">{t("sq.morale")}</th>
                 <th className="hidden px-3 py-3 text-center sm:table-cell">{t("sq.condition")}</th>
-                <th className="px-4 py-3 text-right">{t("sq.value")}</th>
+                <th className="px-4 py-3 text-end">{t("sq.value")}</th>
               </tr>
             </thead>
             <tbody>
@@ -106,7 +106,7 @@ export function SquadTab({ save }: { save: SaveData }) {
                       </span>
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <td className="px-4 py-3 text-end font-mono text-xs tabular-nums text-muted-foreground">
                     {fmtMoney(p.val)}
                   </td>
                 </tr>

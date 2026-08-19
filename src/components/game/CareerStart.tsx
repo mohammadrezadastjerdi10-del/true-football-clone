@@ -150,7 +150,7 @@ export function CareerStart() {
               key={m.id}
               type="button"
               onClick={() => setMode(m.id)}
-              className={`rounded-2xl border p-4 text-left transition-all ${
+              className={`rounded-2xl border p-4 text-start transition-all ${
                 mode === m.id
                   ? "border-emerald-500/50 bg-emerald-500/[0.07]"
                   : "border-white/8 bg-card hover:border-white/20"
@@ -456,7 +456,7 @@ export function CareerStart() {
                       key={club.id}
                       type="button"
                       onClick={() => setClubId(club.id)}
-                      className={`flex items-center gap-3.5 rounded-2xl border p-4 text-left transition-all ${
+                      className={`flex items-center gap-3.5 rounded-2xl border p-4 text-start transition-all ${
                         selected
                           ? "border-emerald-500/50 bg-emerald-500/[0.07]"
                           : "border-white/8 bg-card hover:border-white/20"

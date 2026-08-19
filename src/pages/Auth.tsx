@@ -150,7 +150,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                         name="email"
                         placeholder={t("au.emailPlaceholder")}
                         type="email"
-                        className="pl-9"
+                        className="ps-9"
                         disabled={isLoading}
                         required
                       />
@@ -191,7 +191,7 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                       onClick={handleGuestLogin}
                       disabled={isLoading}
                     >
-                      <UserX className="mr-2 h-4 w-4 rtl:ml-2 rtl:mr-0" />
+                      <UserX className="me-2 h-4 w-4 rtl:ms-2 rtl:me-0" />
                       {t("au.guest")}
                     </Button>
                   </div>
@@ -258,13 +258,13 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
                   >
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin rtl:ml-2 rtl:mr-0" />
+                        <Loader2 className="me-2 h-4 w-4 animate-spin rtl:ms-2 rtl:me-0" />
                         {t("au.verifying")}
                       </>
                     ) : (
                       <>
                         {t("au.verifyCode")}
-                        <ArrowRight className="ml-2 h-4 w-4 rtl:mr-2 rtl:ml-0 rtl:rotate-180" />
+                        <ArrowRight className="ms-2 h-4 w-4 rtl:me-2 rtl:ms-0 rtl:rotate-180" />
                       </>
                     )}
                   </Button>

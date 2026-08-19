@@ -360,7 +360,7 @@ function ReportDialog({
                   key={f.id}
                   type="button"
                   onClick={() => onOpenPlayer(f)}
-                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-left transition-colors hover:border-emerald-500/40"
+                  className="flex w-full items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] px-4 py-3 text-start transition-colors hover:border-emerald-500/40"
                 >
                   <div className="flex min-w-0 items-center gap-2.5">
                     <Flag nat={f.nat} />
@@ -428,7 +428,7 @@ function PlayerReport({ p }: { p: MarketPlayer }) {
                     <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/8">
                       <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${v}%` }} />
                     </div>
-                    <span className="w-5 text-right font-mono text-xs font-semibold tabular-nums text-foreground">
+                    <span className="w-5 text-end font-mono text-xs font-semibold tabular-nums text-foreground">
                       {num(lang, v)}
                     </span>
                   </div>

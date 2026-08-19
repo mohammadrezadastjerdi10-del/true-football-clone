@@ -34,7 +34,7 @@ import { clubById, countryById, leagueById, NAME_POOLS, ALL_COUNTRIES, SEASON_ST
 export function clubDefOf(save: SaveData, clubId: string): ClubDef {
   const c = save.customClub;
   if (c && clubId === save.clubId) {
-    const league = leagueById(save.clubId);
+    const league = leagueOf(save.clubId);
     return {
       id: clubId,
       name: c.name,
@@ -48,6 +48,11 @@ export function clubDefOf(save: SaveData, clubId: string): ClubDef {
     };
   }
   return clubById(clubId);
+}
+
+/** The league a club actually plays in (clubs are keyed by club id). */
+export function leagueOf(clubId: string): import("./world").LeagueDef {
+  return leagueById(clubById(clubId).league);
 }
 
 export const LEAGUE_SIZE = 12;
@@ -499,7 +504,7 @@ export function generateMarket(rng: Rng): MarketPlayer[] {
 // ---------------------------------------------------------------------------
 
 export function fixturesForLeague(save: SaveData): LeagueFixture[] {
-  const clubs = leagueById(save.clubId).clubs.map((c) => c.id);
+  const clubs = leagueOf(save.clubId).clubs.map((c) => c.id);
   const rng = new Rng(hashSeed("fixtures", save.clubId, save.seed));
   const fixtures: LeagueFixture[] = [];
   const n = clubs.length;
@@ -1204,7 +1209,7 @@ export function applyMarketWeek(save: SaveData, rng: Rng) {
     if (existing.length < 3 && rng.chance(0.5)) {
       const formF = 0.85 + Math.min(0.3, (avgForm(p) - 6.5) * 0.1);
       const amount = Math.round((Math.min(asking, p.val * formF * rng.range(0.75, 1.05))) / 10000) * 10000;
-      const club = rng.pick(leagueById(save.clubId).clubs.filter((c) => c.id !== save.clubId));
+      const club = rng.pick(leagueOf(save.clubId).clubs.filter((c) => c.id !== save.clubId));
       existing.push({
         id: `ofr-${save.week}-${pid}`,
         from: club.short,
@@ -1422,6 +1427,24 @@ export function simulateWeek(save: SaveData): { advanced: boolean; reason?: stri
   return { advanced: true };
 }
 
+/**
+ * Fast-forward through training weeks until the next user match (or the
+ * season end). Returns how many weeks were consumed.
+ */
+export function skipToNextMatch(save: SaveData): { advanced: boolean; weeks: number; reason?: string } {
+  let weeks = 0;
+  for (let i = 0; i < 30; i++) {
+    const ev = nextEvent(save);
+    if (ev.type === "league" || ev.type === "cup" || ev.type === "season_end") {
+      return { advanced: weeks > 0, weeks };
+    }
+    const res = simulateWeek(save);
+    if (!res.advanced) return { advanced: weeks > 0, weeks, reason: res.reason };
+    weeks += 1;
+  }
+  return { advanced: weeks > 0, weeks };
+}
+
 /** Finish the current week: weekly effects, week counter, season-end check. */
 export function completeWeek(save: SaveData, rng: Rng) {
   applyWeekly(save, rng);
@@ -1495,7 +1518,7 @@ export function startNextSeason(save: SaveData) {
   save.league.rows = save.league.rows.map((r) => ({ ...r, p: 0, w: 0, d: 0, l: 0, gf: 0, ga: 0, pts: 0 }));
   save.cup = {
     nextRound: 1,
-    alive: leagueById(save.clubId).clubs.map((c) => c.id),
+    alive: leagueOf(save.clubId).clubs.map((c) => c.id),
     rounds: [],
     done: false,
   };

@@ -139,12 +139,12 @@ export function SquadRowMeta({ p }: { p: Player }) {
       <div className="leading-tight">
         <div className="text-sm font-medium text-foreground">
           {playerName(p)}
-          {p.star && <span className="ml-1 text-amber-300">★</span>}
+          {p.star && <span className="ms-1 text-amber-300">★</span>}
         </div>
         <div className="text-[11px] text-muted-foreground">
           {t("sq.yrs", { age: num(lang, p.age) })} · {fmtMoney(p.val)}
-          {p.injury && <span className="ml-1.5 text-red-400">{t("sq.inj", { weeks: num(lang, p.injury.weeks) })}</span>}
-          {p.susp > 0 && <span className="ml-1.5 text-amber-300">{t("sq.susp")}</span>}
+          {p.injury && <span className="ms-1.5 text-red-400">{t("sq.inj", { weeks: num(lang, p.injury.weeks) })}</span>}
+          {p.susp > 0 && <span className="ms-1.5 text-amber-300">{t("sq.susp")}</span>}
         </div>
       </div>
     </div>

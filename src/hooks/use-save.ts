@@ -7,6 +7,7 @@ export function useSave() {
 
   const createCareer = useMutation(api.saves.createCareer);
   const advanceWeek = useMutation(api.saves.advanceWeek);
+  const skipToNextMatch = useMutation(api.saves.skipToNextMatch);
   const finishMatch = useMutation(api.saves.finishMatch);
   const setTactics = useMutation(api.saves.setTactics);
   const setTraining = useMutation(api.saves.setTraining);
@@ -28,6 +29,7 @@ export function useSave() {
     isLoading: save === undefined,
     createCareer,
     advanceWeek,
+    skipToNextMatch,
     finishMatch,
     setTactics,
     setTraining,

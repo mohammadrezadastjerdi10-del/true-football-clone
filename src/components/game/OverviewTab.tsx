@@ -3,13 +3,14 @@ import {
   ChevronRight,
   CircleDollarSign,
   Clock3,
+  FastForward,
   Landmark,
   Newspaper,
   Play,
   Trophy,
 } from "lucide-react";
 import { useSave } from "@/hooks/use-save";
-import { clubDefOf, nextEvent, positionOf, standings } from "@/lib/game/sim";
+import { clubDefOf, CUP_ROUND_AT_WEEK, LEAGUE_ROUND_AT_WEEK, nextEvent, positionOf, standings } from "@/lib/game/sim";
 import { leagueById } from "@/lib/game/world";
 import type { NextEvent, SaveData } from "@/lib/game/types";
 import { fmtMoney, ordinal } from "@/lib/game/format";
@@ -38,7 +39,7 @@ export function OverviewTab({
   save: SaveData;
   onPlayMatch: (ev: NextEvent) => void;
 }) {
-  const { advanceWeek, startNextSeason, isLoading } = useSave();
+  const { advanceWeek, skipToNextMatch, startNextSeason, isLoading } = useSave();
   const { t, lang } = useLang();
   const club = clubDefOf(save, save.clubId);
   const league = leagueById(save.clubId);
@@ -54,6 +55,15 @@ export function OverviewTab({
     try {
       const res = await advanceWeek();
       if (!res.advanced) toast.info(t("ov.playFirst"));
+    } catch {
+      toast.error(t("ov.advanceError"));
+    }
+  };
+
+  const skip = async () => {
+    try {
+      const res = await skipToNextMatch();
+      if (res.weeks > 0) toast.success(t("ov.skipDone", { n: num(lang, res.weeks) }));
     } catch {
       toast.error(t("ov.advanceError"));
     }
@@ -92,7 +102,7 @@ export function OverviewTab({
           </div>
           <div className="flex items-center gap-3">
             <ResultChips raw={save.flags.lastResults} />
-            <div className="rounded-xl border border-white/10 bg-background/60 px-4 py-2 text-right">
+            <div className="rounded-xl border border-white/10 bg-background/60 px-4 py-2 text-end">
               <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 {t("ov.position")}
               </div>
@@ -160,10 +170,16 @@ export function OverviewTab({
                 {t("ov.startNextSeason")}
               </Button>
             ) : (
-              <Button className="w-full rounded-xl" size="lg" onClick={advance} disabled={isLoading}>
-                {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Clock3 className="size-4" />}
-                {t("ov.advanceWeek")}
-              </Button>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Button variant="outline" className="w-full rounded-xl border-white/10" size="lg" onClick={advance} disabled={isLoading}>
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : <Clock3 className="size-4" />}
+                  {t("ov.advanceOne")}
+                </Button>
+                <Button className="w-full rounded-xl" size="lg" onClick={skip} disabled={isLoading}>
+                  {isLoading ? <Loader2 className="size-4 animate-spin" /> : <FastForward className="size-4" />}
+                  {t("ov.skipToMatch")}
+                </Button>
+              </div>
             )}
           </div>
         </div>
@@ -215,6 +231,76 @@ export function OverviewTab({
         </div>
       </div>
 
+      {/* Season calendar */}
+      <div className="rounded-2xl border border-white/8 bg-card p-5 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <SectionTitle title={t("ov.calendar")} sub={t("ov.calendarSub")} />
+          <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-emerald-400" /> {t("ov.calNext")}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-amber-400/70" /> {t("ov.calCupShort")}
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span className="size-2.5 rounded-full bg-white/15" /> {t("ov.calTraining")}
+            </span>
+          </div>
+        </div>
+        <div className="mt-4 flex gap-1.5 overflow-x-auto pb-2">
+          {Array.from({ length: 26 }, (_, i) => i + 1).map((w) => {
+            const round = LEAGUE_ROUND_AT_WEEK[w - 1];
+            const cupR = CUP_ROUND_AT_WEEK[w - 1];
+            const cupFixtures = save.cup.rounds[cupR - 1] ?? [];
+            const hasCup = cupR > 0 && cupFixtures.some((f) => f.home === save.clubId || f.away === save.clubId);
+            const cupPlanned = cupR > 0 && !hasCup && save.cup.alive.includes(save.clubId) && !save.cup.done;
+            const past = w <= save.week;
+            const now = w === ev.week;
+            const isNext = now && (ev.type === "league" || ev.type === "cup");
+            const icon = hasCup || cupPlanned ? "🏆" : round > 0 ? "⚽" : "·";
+            const label = hasCup || cupPlanned
+              ? t("ov.calCup", { round: t(`cup.r${cupR}`) })
+              : round > 0
+                ? t("ov.calMatchday", { r: num(lang, round) })
+                : t("ov.calTraining");
+            return (
+              <div
+                key={w}
+                title={`${t("ov.calWeek", { w: num(lang, w) })} — ${label}`}
+                className={cn(
+                  "flex size-11 shrink-0 flex-col items-center justify-center rounded-xl border text-[10px] font-semibold transition-all",
+                  past
+                    ? "border-white/5 bg-white/[0.02] text-muted-foreground/50"
+                    : isNext
+                      ? "border-emerald-400/70 bg-emerald-500/15 text-emerald-200 ring-2 ring-emerald-400/40"
+                      : now
+                        ? "border-emerald-500/40 bg-emerald-500/[0.07] text-emerald-300"
+                        : cupPlanned || hasCup
+                          ? "border-amber-400/25 bg-amber-400/[0.06] text-amber-200"
+                          : "border-white/10 bg-card text-foreground",
+                )}
+              >
+                <span className="font-mono tabular-nums">{num(lang, w)}</span>
+                <span className="text-[8px] leading-none opacity-80">{past && round > 0 && !hasCup ? "✓" : icon}</span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          {ev.type === "league" || ev.type === "cup"
+            ? t("ov.calNowMatch", {
+                week: t("ov.calWeek", { w: num(lang, ev.week) }),
+                label:
+                  ev.type === "cup"
+                    ? t("ov.calCup", { round: t(`cup.r${ev.round}`) })
+                    : t("ov.calMatchday", { r: num(lang, ev.round) }),
+              })
+            : ev.type === "season_end"
+              ? t("ov.seasonOver")
+              : t("ov.calNowTraining", { week: t("ov.calWeek", { w: num(lang, ev.week) }) })}
+        </p>
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-[1.3fr_1fr]">
         {/* League table */}
         <div className="rounded-2xl border border-white/8 bg-card">
@@ -224,7 +310,7 @@ export function OverviewTab({
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="text-left text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                <tr className="text-start text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   <th className="px-4 py-2.5">#</th>
                   <th className="px-2 py-2.5">{t("ov.table.club")}</th>
                   <th className="px-2 py-2.5 text-center">{t("ov.table.p")}</th>
@@ -232,7 +318,7 @@ export function OverviewTab({
                   <th className="px-2 py-2.5 text-center">{t("ov.table.d")}</th>
                   <th className="px-2 py-2.5 text-center">{t("ov.table.l")}</th>
                   <th className="px-2 py-2.5 text-center">{t("ov.table.gd")}</th>
-                  <th className="px-4 py-2.5 text-right">{t("ov.table.pts")}</th>
+                  <th className="px-4 py-2.5 text-end">{t("ov.table.pts")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -266,7 +352,7 @@ export function OverviewTab({
                       <td className="px-2 py-2.5 text-center tabular-nums">{r.d}</td>
                       <td className="px-2 py-2.5 text-center tabular-nums">{r.l}</td>
                       <td className="px-2 py-2.5 text-center tabular-nums">{r.gf - r.ga}</td>
-                      <td className="px-4 py-2.5 text-right font-mono font-bold tabular-nums text-foreground">
+                      <td className="px-4 py-2.5 text-end font-mono font-bold tabular-nums text-foreground">
                         {r.pts}
                       </td>
                     </tr>

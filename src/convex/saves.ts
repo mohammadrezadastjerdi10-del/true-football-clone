@@ -20,6 +20,7 @@ import {
   setTactics as applyTactics,
   setTraining as applyTrainingPlan,
   simulateWeek,
+  skipToNextMatch as skipToNextMatchData,
   startNextSeason as startNextSeasonData,
   transferListPlayer as transferListPlayerFor,
   unlistPlayer as unlistPlayerFor,
@@ -235,6 +236,18 @@ export const setTraining = mutation({
     });
     await ctx.db.patch(doc._id, { data: save, updatedAt: Date.now() });
     return { ok: true };
+  },
+});
+
+export const skipToNextMatch = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const { doc } = await loadSave(ctx);
+    if (!doc) throw new Error("No career found");
+    const save = doc.data as SaveData;
+    const res = skipToNextMatchData(save);
+    if (res.weeks > 0) await ctx.db.patch(doc._id, { data: save, updatedAt: Date.now() });
+    return res;
   },
 });
 

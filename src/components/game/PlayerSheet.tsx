@@ -98,7 +98,7 @@ export function PlayerSheet({
               <div>
                 <DialogTitle className="text-lg font-bold tracking-tight">
                   {name}
-                  {"star" in player && player.star && <span className="ml-1 text-amber-300">★</span>}
+                  {"star" in player && player.star && <span className="ms-1 text-amber-300">★</span>}
                 </DialogTitle>
                 <DialogDescription className="mt-0.5 flex items-center gap-2">
                   <PosBadge pos={player.pos} />
@@ -114,7 +114,7 @@ export function PlayerSheet({
                 </DialogDescription>
               </div>
             </div>
-            <div className="text-right">
+            <div className="text-end">
               <div className="text-[10px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 {t("sq.ovr")}
               </div>
@@ -217,7 +217,7 @@ export function PlayerSheet({
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-white/8">
                         <div className="h-full rounded-full bg-emerald-500/70" style={{ width: `${v}%` }} />
                       </div>
-                      <span className={cn("w-5 text-right font-mono text-xs font-semibold tabular-nums", attrTone(v))}>
+                      <span className={cn("w-5 text-end font-mono text-xs font-semibold tabular-nums", attrTone(v))}>
                         {num(lang, v)}
                       </span>
                     </div>

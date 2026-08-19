@@ -26,6 +26,8 @@ import {
   unlistPlayer as unlistPlayerFor,
   upgradeSponsor as upgradeSponsorFor,
   upgradeStadium as upgradeStadiumFor,
+  LEAGUE_ROUND_AT_WEEK,
+  CUP_ROUND_AT_WEEK,
 } from "../lib/game/sim";
 import { hashSeed, Rng } from "../lib/game/rng";
 import type { FinishedMatch, SaveData, Tactics } from "../lib/game/types";
@@ -160,19 +162,52 @@ export const finishMatch = mutation({
     if (!doc) throw new Error("No career found");
     const save = doc.data as SaveData;
     const ev = nextEvent(save);
-    if (ev.type !== args.kind || ev.round !== args.round) {
-      throw new Error("Stale match result — refresh and try again");
+    // Find the fixture for the user's club. Try exact match first,
+    // then fall back to searching by club ID in the current week.
+    let matchKind = ev.type;
+    let matchRound = ev.round;
+    let fixtureHome = ev.fixture?.home;
+    let fixtureAway = ev.fixture?.away;
+    if (!fixtureHome || !fixtureAway) {
+      // Exact match failed — search fixtures by club ID
+      const week = save.week + 1;
+      // Try cup fixtures
+      const cupRound = CUP_ROUND_AT_WEEK[week - 1];
+      if (cupRound > 0 && save.cup.alive.includes(save.clubId) && !save.cup.done) {
+        const cupFixtures = save.cup.rounds[cupRound - 1] ?? [];
+        const cupFx = cupFixtures.find((f) => !f.played && (f.home === save.clubId || f.away === save.clubId));
+        if (cupFx) {
+          matchKind = "cup"; matchRound = cupRound;
+          fixtureHome = cupFx.home; fixtureAway = cupFx.away;
+        }
+      }
+      // Try league fixtures
+      if (!fixtureHome) {
+        const leagueRound = LEAGUE_ROUND_AT_WEEK[week - 1];
+        if (leagueRound > 0) {
+          const leagueFx = save.league.fixtures.find((f) => f.round === leagueRound && !f.played && (f.home === save.clubId || f.away === save.clubId));
+          if (leagueFx) {
+            matchKind = "league"; matchRound = leagueRound;
+            fixtureHome = leagueFx.home; fixtureAway = leagueFx.away;
+          }
+        }
+      }
     }
-    if (!ev.fixture) throw new Error("No fixture for this match");
-    const mineHome = ev.fixture.home === save.clubId;
-    if (mineHome ? ev.fixture.away !== args.away || ev.fixture.home !== args.home : ev.fixture.home !== args.home || ev.fixture.away !== args.away) {
-      throw new Error("Fixture mismatch");
+    if (!fixtureHome || !fixtureAway) {
+      throw new Error("No fixture for this match");
+    }
+    // Verify the submitted fixture matches
+    if (fixtureHome !== args.home || fixtureAway !== args.away) {
+      // Accept if the clubs match but home/away order differs
+      if (!(fixtureHome === args.away && fixtureAway === args.home)) {
+        throw new Error("Fixture mismatch");
+      }
     }
 
     const finished: FinishedMatch = {
-      id: `${args.kind}-${args.round}-${save.week + 1}`,
-      kind: args.kind,
-      round: args.round,
+      id: `${matchKind}-${matchRound}-${save.week + 1}`,
+      kind: matchKind as "league" | "cup",
+      round: matchRound,
       week: save.week + 1,
       home: args.home,
       away: args.away,

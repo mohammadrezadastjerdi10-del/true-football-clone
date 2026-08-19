@@ -92,13 +92,18 @@ export const SPONSOR_LEVELS = [
 
 export const PRIZE_MONEY = [8_000_000, 5_500_000, 4_000_000, 3_200_000, 2_600_000, 2_200_000, 1_900_000, 1_600_000, 1_400_000, 1_200_000, 1_050_000, 900_000, 800_000, 700_000, 600_000, 500_000];
 
-// League wealth multiplier on prize money (richer leagues pay out more).
-const LEAGUE_WEALTH: Record<string, number> = {
+// League wealth multiplier — affects budget, wages, sponsor, ticket income, and prize money.
+export const LEAGUE_WEALTH: Record<string, number> = {
   eng: 2.0, esp: 1.9, ita: 1.8, ger: 1.8, fra: 1.6, sau: 1.5, usa: 1.3, jpn: 1.2,
   por: 1.1, ned: 1.1, bel: 1.0, tur: 1.0, bra: 1.0, arg: 0.9, mex: 0.9, sui: 0.9,
   aut: 0.85, cze: 0.85, ukr: 0.8, swe: 0.8, den: 0.8, nor: 0.75, rou: 0.75, hun: 0.7,
   cro: 0.7, gre: 0.7, pol: 0.7, sco: 0.7, qat: 1.1, uae: 1.0, egy: 0.6, irn: 0.5,
 };
+
+/** Get the wealth multiplier for the user's league. */
+export function leagueWealth(save: SaveData): number {
+  return LEAGUE_WEALTH[leagueOf(save.clubId).id] ?? 1;
+}
 export const CUP_PRIZE = 1_500_000;
 
 // Scouting: duration (weeks) -> cost. Faster reports cost more.
@@ -206,15 +211,15 @@ export function marketAsking(p: { ovr: number; age: number; pot?: number; pos: P
   return Math.round(v / 100_000) * 100_000;
 }
 
-export function wageFor(ovr: number): number {
-  // Realistic weekly wages in EUR:
+export function wageFor(ovr: number, wealthMult = 1): number {
+  // Realistic weekly wages in EUR, scaled by league wealth:
   // OVR 48-55: €3K-8K (squad depth)
   // OVR 56-65: €8K-20K (regular starters)
   // OVR 66-75: €20K-50K (key players)
   // OVR 76-85: €50K-120K (stars)
   // OVR 86+: €120K-250K (elite)
   const base = Math.pow(Math.max(0, ovr - 42), 2.8) * 1.8;
-  return Math.max(3000, Math.round(base / 500) * 500);
+  return Math.max(3000, Math.round(base * wealthMult / 500) * 500);
 }
 
 export function avgForm(p: Player): number {
@@ -612,7 +617,9 @@ export function createCareer(input: { seed: number; managerName: string; manager
   const squad = generateClubSquad(club.id, 1, input.seed, { country: nat, tier });
   const youth = generateYouthSquad(club.id, 1, input.seed, { country: nat, academy: custom?.academy ?? 1 });
   const stadium = STADIUM_LEVELS[0];
-  const balance = TIER_BUDGET[Math.max(0, Math.min(3, (custom?.tier ?? club.tier) - 1))] + rng.int(0, 8_000_000);
+  const tierBudget = TIER_BUDGET[Math.max(0, Math.min(3, (custom?.tier ?? club.tier) - 1))];
+  const wealth = custom?.country ? (LEAGUE_WEALTH[clubById(club.league.split('-')[0])?.country ?? custom.country] ?? 1) : (LEAGUE_WEALTH[leagueById(club.league).id] ?? 1);
+  const balance = Math.round(tierBudget * (0.6 + wealth * 0.4) + rng.int(0, 8_000_000));
 
   const save: SaveData = {
     v: 1,
@@ -626,7 +633,7 @@ export function createCareer(input: { seed: number; managerName: string; manager
     phase: "league",
     balance,
     stadium: { level: 1, capacity: custom?.capacity ?? stadium.capacity, ticket: stadium.ticket, name: custom?.stadium ?? club.stadium },
-    sponsor: { level: 1, weekly: SPONSOR_LEVELS[0].weekly },
+    sponsor: { level: 1, weekly: Math.round(SPONSOR_LEVELS[0].weekly * (0.5 + wealth * 0.5)) },
     squad,
     youth,
     tactics: {
@@ -673,6 +680,10 @@ export function createCareer(input: { seed: number; managerName: string; manager
   const draw = drawCupFirstRound(new Rng(hashSeed("cup", club.id, save.seed)), clubs);
   save.cup.rounds = [draw.fixtures];
   save.cup.byes = draw.byes;
+  // Scale wages by league wealth
+  for (const p of save.squad) {
+    p.wage = wageFor(computeOverall(p), wealth);
+  }
   save.weeklyWage = squad.reduce((a, p) => a + p.wage, 0);
   save.weeklyIncome = save.sponsor.weekly;
   addNews(save, "info", L(save, `Welcome to ${clubDefOf(save, save.clubId).name}, ${input.managerName}! Season ${save.label} begins — your board expects a solid campaign.`, `به ${clubDefOf(save, save.clubId).name} خوش آمدید، ${input.managerName}! فصل ${save.label} آغاز شد — هیئت‌مدیره انتظار یک فصل خوب دارد.`));
@@ -1127,7 +1138,8 @@ export function recordUserMatch(save: SaveData, m: FinishedMatch) {
     const wins = (last.match(/W/g) ?? []).length;
     const factor = (0.85 + (LEAGUE_SIZE - pos) * 0.035) * (0.95 + wins * 0.03);
     const attendance = Math.min(save.stadium.capacity, Math.round(pop * factor));
-    const income = attendance * save.stadium.ticket;
+    const wealth = leagueWealth(save);
+    const income = Math.round(attendance * save.stadium.ticket * (0.5 + wealth * 0.5));
     addFinance(save, income, 0, `Matchday income vs ${clubDefOf(save, m.away).short} (${attendance.toLocaleString()} fans)`);
   }
 

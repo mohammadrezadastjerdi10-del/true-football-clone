@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Button } from "@/components/ui/button";
 import {
   ChevronRight,
@@ -32,7 +33,7 @@ const NEWS_ICON: Record<SaveData["news"][number]["kind"], string> = {
   cup: "🏅",
 };
 
-export function OverviewTab({
+export const OverviewTab = memo(function OverviewTab({
   save,
   onPlayMatch,
 }: {
@@ -401,4 +402,4 @@ export function OverviewTab({
       </div>
     </div>
   );
-}
+});

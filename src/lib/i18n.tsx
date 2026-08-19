@@ -389,6 +389,7 @@ const DICT: Dict = {
   "mv.min5": { en: "+5 min", fa: "+۵ دقیقه" },
   "mv.toHalftime": { en: "To half-time", fa: "تا پایان نیمه اول" },
   "mv.toFulltime": { en: "To full-time", fa: "تا پایان بازی" },
+  "mv.skipAll": { en: "Skip match", fa: "رد کردن بازی" },
   "mv.autoPlay": { en: "Live play", fa: "پخش زنده" },
   "mv.autoPlayOn": { en: "The match runs on its own — jump in any time.", fa: "مسابقه خودش ادامه می‌یابد — هر وقت خواستید وارد شوید." },
   "mv.autoPlayOff": { en: "Paused — use the skip buttons to jump ahead.", fa: "متوقف شد — برای جلو پریدن از دکمه‌های پرش استفاده کنید." },

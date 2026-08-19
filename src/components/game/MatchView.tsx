@@ -60,6 +60,8 @@ export function MatchView({
   const [saving, setSaving] = useState(false);
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(2);
+  // Pitch visualization: track ball position for live animation
+  const [ballPos, setBallPos] = useState({ x: 50, y: 50 });
 
   const mySide = userTeam === 0 ? match.home : match.away;
   const oppSide = userTeam === 0 ? match.away : match.home;
@@ -75,22 +77,39 @@ export function MatchView({
   // Auto-playing clock: simulated minutes advance on their own. The speed
   // selector multiplies minutes per tick; the match pauses at half-time and
   // full time so the manager can talk / confirm the result.
+  // On slow devices, higher speeds step multiple minutes per tick for smoother gameplay.
   useEffect(() => {
     if (!playing) return;
     if (match.ended || atHt) {
       setPlaying(false);
       return;
     }
+    // Adaptive step: at high speeds, step multiple minutes per tick
+    // to keep the match flowing smoothly on slower devices
+    const stepSize = speed >= 8 ? 4 : speed >= 4 ? 2 : 1;
+    const tickMs = speed >= 8 ? 400 : speed >= 4 ? 300 : 600 / speed;
     const id = setInterval(() => {
       setMatch((m) => {
         if (m.ended || (m.atHt && m.half === 1)) return m;
         // stepMatch mutates and returns the same reference; spread it so
         // React re-renders every tick (score, clock and feed stay in sync).
-        return { ...stepMatch(m, 1) };
+        return { ...stepMatch(m, stepSize) };
       });
-    }, 600 / speed);
+    }, tickMs);
     return () => clearInterval(id);
   }, [playing, speed, match.ended, atHt]);
+
+  // Animate ball position on the pitch visualization
+  useEffect(() => {
+    if (!playing || match.ended || atHt) return;
+    const id = setInterval(() => {
+      setBallPos((prev) => ({
+        x: Math.max(10, Math.min(90, prev.x + (Math.random() - 0.5) * 30)),
+        y: Math.max(10, Math.min(90, prev.y + (Math.random() - 0.5) * 20)),
+      }));
+    }, 800);
+    return () => clearInterval(id);
+  }, [playing, match.ended, atHt]);
   const talk = (t: 0 | 1 | 2) => {
     setTeamTalk(match, userTeam, t);
     // The engine pauses at half-time; the caller is responsible for
@@ -203,6 +222,19 @@ export function MatchView({
           <rect x="10" y="30" width="35" height="60" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
           <rect x="355" y="30" width="35" height="60" rx="2" fill="none" stroke="white" strokeWidth="0.5" />
         </svg>
+        {/* Live pitch visualization with moving ball */}
+        {!match.ended && (
+          <svg className="pointer-events-none absolute inset-0 -z-[1] h-full w-full opacity-[0.08]" viewBox="0 0 400 120" preserveAspectRatio="none">
+            {/* Mini pitch */}
+            <rect x="20" y="10" width="360" height="100" rx="2" fill="none" stroke="white" strokeWidth="0.4" />
+            <line x1="200" y1="10" x2="200" y2="110" stroke="white" strokeWidth="0.3" />
+            <circle cx="200" cy="60" r="12" fill="none" stroke="white" strokeWidth="0.3" />
+            {/* Ball dot */}
+            <circle cx={ballPos.x * 3.8 + 20} cy={ballPos.y * 1 + 10} r="3" fill="#4ade80" opacity="0.9">
+              <animate attributeName="opacity" values="0.9;0.5;0.9" dur="1.5s" repeatCount="indefinite" />
+            </circle>
+          </svg>
+        )}
         <div className="relative z-10 grid grid-cols-[1fr_auto_1fr] items-center gap-4 px-6 py-8">
           <TeamScore club={clubDefOf(save, mySide.id)} goals={myGoals} highlight />
           <div className="text-center">
@@ -293,7 +325,7 @@ export function MatchView({
               <p className="mt-1 text-xs text-muted-foreground">
                 {t("mv.controlSub")}
               </p>
-              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3">
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.03] p-3 contain-card">
                 <div className="flex items-center gap-2">
                   <Button
                     size="sm"
@@ -335,6 +367,11 @@ export function MatchView({
                 <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-white/10" onClick={() => step(match.half === 1 ? 45 - match.minute : 90 - match.minute)}>
                   <SkipForward className="size-3.5 rtl:rotate-180" /> {t(match.half === 1 ? "mv.toHalftime" : "mv.toFulltime")}
                 </Button>
+                {!match.ended && !atHt && (
+                  <Button variant="outline" size="sm" className="gap-1.5 rounded-lg border-amber-400/25 text-amber-300" onClick={() => step(match.half === 1 ? 45 - match.minute : 90 - match.minute)}>
+                    <SkipForward className="size-3.5 rtl:rotate-180" /> {t("mv.skipAll")}
+                  </Button>
+                )}
               </div>
               <div className="mt-5" dir="ltr">
                 <div className="mb-2 flex items-center justify-between text-xs">

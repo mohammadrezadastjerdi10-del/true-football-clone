@@ -145,3 +145,23 @@
     font-family: 'JetBrains Mono', ui-monospace, monospace;
   }
 }
+
+/* Performance: containment for heavy game cards */
+@layer utilities {
+  .contain-card {
+    contain: layout style paint;
+  }
+  .contain-content {
+    contain: content;
+  }
+  .contain-strict {
+    contain: strict;
+  }
+}
+
+/* Smooth transitions for tab switches */
+@layer base {
+  [data-radix-dialog-content] {
+    will-change: transform;
+  }
+}

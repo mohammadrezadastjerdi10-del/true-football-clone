@@ -14,13 +14,19 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Vazirmatn:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Vazirmatn:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="preload" href="/logo.svg" as="image" type="image/svg+xml" />
   <title>True Football Clone</title>
   <style>
     /* Critical CSS — prevent FOUC on dark theme */
     html, body { background: #101513; color: #eef0ee; }
     body { margin: 0; font-family: 'Inter', system-ui, sans-serif; }
     #root { min-height: 100vh; }
+    /* Prevent layout shifts from lazy-loaded content */
+    .game-card { contain: layout style paint; }
+    /* Optimize paint for animated elements */
+    .animate-pulse { will-change: opacity; }
   </style>
 </head>
 

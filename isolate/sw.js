@@ -1,4 +1,4 @@
-const CACHE_NAME = "tf-clone-v2";
+const CACHE_NAME = "tf-clone-v1";
 const PRECACHE = [
   "/",
   "/index.html",
@@ -30,11 +30,10 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
   if (url.pathname.startsWith("/api/")) return;
 
-  // For same-origin static assets: cache-first with stale-while-revalidate
+  // For same-origin static assets: cache-first
   if (url.origin === self.location.origin) {
     e.respondWith(
       caches.match(e.request).then((cached) => {
-        // Always return cached version immediately if available
         if (cached) {
           // Update cache in background (stale-while-revalidate)
           fetch(e.request).then((response) => {
@@ -44,19 +43,12 @@ self.addEventListener("fetch", (e) => {
           }).catch(() => {});
           return cached;
         }
-        // If not cached, fetch and cache
         return fetch(e.request).then((response) => {
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
           }
           return response;
-        }).catch(() => {
-          // Offline fallback: return a basic response for navigation requests
-          if (e.request.mode === "navigate") {
-            return caches.match("/index.html");
-          }
-          return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
         });
       })
     );
@@ -71,24 +63,6 @@ self.addEventListener("fetch", (e) => {
         caches.open(CACHE_NAME).then((cache) => cache.put(e.request, clone));
       }
       return response;
-    }).catch(() => {
-      // If network fails, try cache
-      return caches.match(e.request).then((cached) => {
-        if (cached) return cached;
-        // For font requests, return empty response to prevent blocking
-        if (e.request.destination === "font") {
-          return new Response("", { status: 200, headers: { "Content-Type": "font/woff2" } });
-        }
-        return new Response("Offline", { status: 503, statusText: "Service Unavailable" });
-      });
-    })
+    }).catch(() => caches.match(e.request))
   );
-});
-
-// Background sync preparation for future use
-self.addEventListener("sync", (e) => {
-  if (e.tag === "sync-saves") {
-    // Future: sync local saves to server when online
-    e.waitUntil(Promise.resolve());
-  }
 });
